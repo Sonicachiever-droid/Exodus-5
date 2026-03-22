@@ -32,6 +32,341 @@ enum RefretMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum GameplayModeVariant {
+    case freestyle
+    case beat
+    case chord
+}
+
+private enum AnswerSide {
+    case left
+    case right
+}
+
+private enum LayoutMode {
+    case beginner
+    case maestro
+}
+
+private enum BeginnerCoursePhase {
+    case round1Ascending
+    case round1Celebration
+    case round2Arming
+    case round2Descending
+    case round2Celebration
+}
+
+private struct HighlightWindowShape: InsettableShape {
+    var cornerRadius: CGFloat
+    var insetAmount: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let radius = max(0, cornerRadius - insetAmount)
+        return RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: insetRect)
+    }
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+}
+
+private enum FretMath {
+    static func fretPositionRatios(totalFrets: Int, scaleLength: Double) -> [CGFloat] {
+        let safeFrets = max(totalFrets, 1)
+        let safeScale = max(scaleLength, 0.001)
+        return (0...safeFrets).map { fret in
+            let distance = safeScale - (safeScale / pow(2.0, Double(fret) / 12.0))
+            return CGFloat(distance / safeScale)
+        }
+    }
+}
+
+private func baselineNutTargetY(highlightTopGridLineY: CGFloat, gridRowHeight: CGFloat) -> CGFloat {
+    highlightTopGridLineY + (gridRowHeight * 2)
+}
+
+private func resolvedNeckTopY(
+    currentFretStart: Int,
+    nutTargetY: CGFloat,
+    highlightCenterY: CGFloat,
+    activeMidpoint: CGFloat
+) -> CGFloat {
+    if currentFretStart == 0 {
+        return nutTargetY
+    }
+    return highlightCenterY - activeMidpoint
+}
+
+private enum GuitarStringLayout {
+    static let totalStrings: Int = 6
+    static let highestStringNumber: Int = 6
+    private static let stratNutWidthInches: CGFloat = 1.650
+    private static let stratStringSpanInches: CGFloat = 1.362
+
+    static func stringCenters(containerWidth: CGFloat, neckWidth: CGFloat) -> [CGFloat] {
+        guard containerWidth > 0, neckWidth > 0 else {
+            return Array(repeating: containerWidth / 2, count: totalStrings)
+        }
+
+        let nutWidth = neckWidth * 0.99
+        let overallPadding = (containerWidth - nutWidth) / 2
+        let widthPerInch = nutWidth / stratNutWidthInches
+        let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
+        let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
+
+        return (0..<totalStrings).map { index in
+            overallPadding + edgeMargin + CGFloat(index) * interStringSpacing
+        }
+    }
+}
+
+private struct StringLineOverlay: View {
+    let neckWidth: CGFloat
+    let horizontalPadding: CGFloat
+    let stringTopY: CGFloat
+    private let bottomClearance: CGFloat = 10
+
+    var body: some View {
+        GeometryReader { geo in
+            let clippedTopY = min(max(stringTopY, 0), geo.size.height)
+            let clippedBottomY = max(clippedTopY, geo.size.height - bottomClearance)
+            let clippedHeight = max(clippedBottomY - clippedTopY, 0)
+            let grooveCenters = GuitarStringLayout.stringCenters(containerWidth: geo.size.width, neckWidth: neckWidth)
+
+            ZStack {
+                ForEach(0..<GuitarStringLayout.totalStrings, id: \.self) { index in
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.88, green: 0.88, blue: 0.84),
+                                    Color(red: 0.62, green: 0.62, blue: 0.58),
+                                    Color(red: 0.42, green: 0.42, blue: 0.38)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: index < 3 ? 2.8 - CGFloat(index) * 0.35 : 1.4)
+                        .frame(height: clippedHeight)
+                        .position(x: grooveCenters[index], y: clippedTopY + clippedHeight / 2)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct MiniTVFrame: View {
+    let text: String
+    let width: CGFloat
+    let height: CGFloat
+    let fontScale: CGFloat
+    var isDarkScreen: Bool = false
+    var glowTint: Color? = nil
+    var hitTestingEnabled: Bool = false
+
+    init(text: String, width: CGFloat, height: CGFloat, fontScale: CGFloat, isDarkScreen: Bool = false, glowTint: Color? = nil, hitTestingEnabled: Bool = false) {
+        self.text = text
+        self.width = width
+        self.height = height
+        self.fontScale = fontScale
+        self.isDarkScreen = isDarkScreen
+        self.glowTint = glowTint
+        self.hitTestingEnabled = hitTestingEnabled
+    }
+
+    var body: some View {
+        let bezelWidth = width + 24
+        let bezelHeight = height + 18
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.08, green: 0.08, blue: 0.1), Color(red: 0.18, green: 0.18, blue: 0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.black.opacity(0.65), lineWidth: 3)
+                .padding(3)
+
+            Group {
+                if isDarkScreen {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.95), Color(red: 0.07, green: 0.07, blue: 0.08), Color.black.opacity(0.95)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .padding(8)
+                } else {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(stops: [
+                                    .init(color: Color(white: 1.0, opacity: 0.85), location: 0.0),
+                                    .init(color: Color(red: 1.0, green: 0.96, blue: 0.70), location: 0.08),
+                                    .init(color: Color(red: 1.0, green: 0.78, blue: 0.12), location: 0.28),
+                                    .init(color: Color(red: 1.0, green: 0.56, blue: 0.00), location: 0.40),
+                                    .init(color: Color(red: 0.28, green: 0.12, blue: 0.00), location: 1.0)
+                                ]),
+                                center: .center,
+                                startRadius: 2,
+                                endRadius: 130
+                            )
+                        )
+                        .padding(8)
+                }
+            }
+
+            Text(text.uppercased())
+                .font(.system(size: max(height * 0.78 * fontScale, 14), weight: .black, design: .default))
+                .fontWidth(.condensed)
+                .kerning(0.9)
+                .allowsTightening(true)
+                .foregroundColor(.black)
+                .minimumScaleFactor(0.45)
+                .padding(.horizontal, 12)
+        }
+        .frame(width: bezelWidth, height: bezelHeight)
+        .overlay {
+            if let glowTint {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(glowTint.opacity(0.78), lineWidth: 1.2)
+                    .padding(3)
+                    .shadow(color: glowTint.opacity(0.42), radius: 10)
+            }
+        }
+        .allowsHitTesting(hitTestingEnabled)
+    }
+}
+
+private struct WhiteNoteBoxOverlay: View {
+    let centerY: CGFloat
+    let availableSize: CGSize
+    let boxHeight: CGFloat
+    let neckWidth: CGFloat
+    let activeStringNumbers: [Int]
+    let answerFeedback: ThumbGlowState?
+    let currentQuestionIsAccidental: Bool
+    let blinkingActive: Bool
+    let blinkOrange: Bool
+    let revealedNoteText: String?
+    let revealedNoteTextColor: Color
+
+    var body: some View {
+        let totalStrings = GuitarStringLayout.totalStrings
+        let stratNutWidthInches: CGFloat = 1.650
+        let stratStringSpanInches: CGFloat = 1.362
+        let clampedBoxHeight = min(boxHeight, availableSize.height)
+        let nutWidth = neckWidth * 0.99
+        let overallWidth = availableSize.width
+        let overallPadding = (overallWidth - nutWidth) / 2
+        let widthPerInch = nutWidth / stratNutWidthInches
+        let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
+        let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
+        let grooveCenters = (0..<totalStrings).map { index in
+            overallPadding + edgeMargin + CGFloat(index) * interStringSpacing
+        }
+        let minCenterSpacing = grooveCenters.enumerated().dropFirst().map { idx, center in
+            center - grooveCenters[idx - 1]
+        }.min() ?? interStringSpacing
+        let spacingGap = max(minCenterSpacing * 0.12, 6)
+        let maxBoxWidthFromSpacing = max(minCenterSpacing - spacingGap, 0)
+        let boxWidth = min(clampedBoxHeight * 1.8, maxBoxWidthFromSpacing)
+        let activeSet = Set(activeStringNumbers)
+
+        return ZStack {
+            ForEach(0..<totalStrings, id: \.self) { index in
+                let stringNumber = totalStrings - index
+                let isActive = activeSet.contains(stringNumber)
+                let fillColor: Color = {
+                    guard isActive else { return Color.clear }
+                    switch answerFeedback {
+                    case .green:
+                        return Color(red: 0.64, green: 0.98, blue: 0.70).opacity(0.95)
+                    case .red:
+                        return Color(red: 1.0, green: 0.62, blue: 0.58).opacity(0.95)
+                    default:
+                        if blinkingActive {
+                            return blinkOrange ? Color(red: 1.0, green: 0.56, blue: 0.00).opacity(0.95) : Color.white.opacity(0.95)
+                        }
+                        return currentQuestionIsAccidental ? Color.black.opacity(0.95) : Color.white.opacity(0.92)
+                    }
+                }()
+                let strokeColor: Color = {
+                    guard isActive else { return .clear }
+                    switch answerFeedback {
+                    case .green:
+                        return Color(red: 0.04, green: 0.42, blue: 0.12).opacity(0.9)
+                    case .red:
+                        return Color(red: 0.48, green: 0.06, blue: 0.06).opacity(0.9)
+                    default:
+                        if blinkingActive {
+                            return Color.black.opacity(0.8)
+                        }
+                        return currentQuestionIsAccidental ? Color.white.opacity(0.86) : Color.black.opacity(0.72)
+                    }
+                }()
+                let auraColor: Color = {
+                    guard isActive else { return .clear }
+                    switch answerFeedback {
+                    case .green:
+                        return Color(red: 0.38, green: 0.92, blue: 0.45).opacity(0.35)
+                    case .red:
+                        return Color(red: 0.92, green: 0.28, blue: 0.20).opacity(0.35)
+                    default:
+                        if blinkingActive {
+                            return blinkOrange ? Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35) : Color.white.opacity(0.35)
+                        }
+                        return currentQuestionIsAccidental ? Color.black.opacity(0.22) : Color.white.opacity(0.38)
+                    }
+                }()
+
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(fillColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(strokeColor, lineWidth: 2)
+                    )
+                    .shadow(color: auraColor, radius: 4)
+                    .shadow(color: auraColor.opacity(0.55), radius: 8)
+                    .frame(width: boxWidth, height: clampedBoxHeight)
+                    .overlay {
+                        if isActive, answerFeedback == .green, let revealedNoteText, !revealedNoteText.isEmpty {
+                            Text(revealedNoteText)
+                                .font(.system(size: min(clampedBoxHeight * 0.78, 28), weight: .black, design: .monospaced))
+                                .minimumScaleFactor(0.32)
+                                .lineLimit(1)
+                                .foregroundStyle(revealedNoteTextColor)
+                                .shadow(color: Color.black.opacity(0.55), radius: 2)
+                                .padding(.horizontal, 1)
+                        }
+                    }
+                    .opacity(isActive ? 1 : 0.0001)
+                    .position(x: grooveCenters[index], y: centerY)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: activeStringNumbers)
+        .animation(.easeInOut(duration: 0.18), value: answerFeedback)
+    }
+}
+
 private struct GoldHorizontalPipingLine: View {
     let width: CGFloat
 
@@ -244,10 +579,10 @@ private struct GameplayControlPlateShell: View {
                 )
                 .overlay(
                     Text(title)
-                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                        .font(.system(size: 10.35, weight: .regular, design: .monospaced))
                         .fontWidth(.compressed)
                         .kerning(0.8)
-                        .foregroundStyle(Color.black.opacity(0.78))
+                        .foregroundStyle(Color.black.opacity(0.92))
                 )
         }
         .buttonStyle(.plain)
@@ -262,9 +597,17 @@ private struct StartupSequenceView: View {
     }
 
     let elapsed: TimeInterval
+    let showFullSequence: Bool
+    let armedText: String
+
+    init(elapsed: TimeInterval, showFullSequence: Bool = true, armedText: String = "Memorization Sequence Armed") {
+        self.elapsed = elapsed
+        self.showFullSequence = showFullSequence
+        self.armedText = armedText
+    }
 
     var body: some View {
-        let state = Self.state(for: elapsed)
+        let state = Self.state(for: elapsed, showFullSequence: showFullSequence, armedText: armedText)
         let fontSize: CGFloat = state.phase == .armed ? 29.6 : 34
         let fontWeight: Font.Weight = .black
 
@@ -280,12 +623,17 @@ private struct StartupSequenceView: View {
             .opacity(state.isVisible ? 1 : 0)
     }
 
-    static func state(for elapsed: TimeInterval) -> (text: String, color: Color, isVisible: Bool, phase: Phase) {
+    static func state(for elapsed: TimeInterval, showFullSequence: Bool = true, armedText: String = "Memorization Sequence Armed") -> (text: String, color: Color, isVisible: Bool, phase: Phase) {
         let firstFlashPeriod: TimeInterval = 1.0
         let secondFlashPeriod: TimeInterval = 1.0
         let armedFlashPeriod: TimeInterval = 1.0
         let firstBlockDuration = firstFlashPeriod * 4
         let secondBlockDuration = firstBlockDuration + (secondFlashPeriod * 4)
+
+        if !showFullSequence {
+            let isVisible = Int(elapsed / armedFlashPeriod).isMultiple(of: 2)
+            return (armedText, Color.green.opacity(0.98), isVisible, .armed)
+        }
 
         if elapsed < firstBlockDuration {
             let isVisible = Int(elapsed / firstFlashPeriod).isMultiple(of: 2)
@@ -300,7 +648,7 @@ private struct StartupSequenceView: View {
 
         let localElapsed = elapsed - secondBlockDuration
         let isVisible = Int(localElapsed / armedFlashPeriod).isMultiple(of: 2)
-        return ("Memorization Sequence Armed", Color.green.opacity(0.98), isVisible, .armed)
+        return (armedText, Color.green.opacity(0.98), isVisible, .armed)
     }
 }
 
@@ -814,6 +1162,16 @@ private struct DeveloperConsoleFrame: View {
     let promptText: String
     let startupElapsed: TimeInterval
     let showStartupSequence: Bool
+    let startupShowFullSequence: Bool
+    let startupArmedText: String
+    let streakMeterLitColumns: Int
+    let streakMeterFailureActive: Bool
+    let streakMeterFailureVisibleColumns: Int
+    let beginnerRoundStatusText: String?
+    let celebrationActive: Bool
+    let celebrationFlashOn: Bool
+    let centeredStatusMessage: String?
+    let centeredStatusColor: Color
 
     private var isHintVisible: Bool {
         promptText.lowercased().hasPrefix("hint:")
@@ -823,11 +1181,19 @@ private struct DeveloperConsoleFrame: View {
         ZStack {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.08, green: 0.08, blue: 0.1), Color(red: 0.18, green: 0.18, blue: 0.2)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    celebrationActive
+                        ? LinearGradient(
+                            colors: celebrationFlashOn
+                                ? [Color(red: 0.95, green: 0.08, blue: 0.08), Color(red: 0.55, green: 0.0, blue: 0.0)]
+                                : [Color(red: 0.25, green: 0.0, blue: 0.0), Color(red: 0.6, green: 0.02, blue: 0.02)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [Color(red: 0.08, green: 0.08, blue: 0.1), Color(red: 0.18, green: 0.18, blue: 0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                 )
                 .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
                 .overlay(
@@ -856,11 +1222,19 @@ private struct DeveloperConsoleFrame: View {
 
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.96), Color(red: 0.07, green: 0.07, blue: 0.08), Color.black.opacity(0.96)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                    celebrationActive
+                        ? LinearGradient(
+                            colors: celebrationFlashOn
+                                ? [Color(red: 1.0, green: 0.14, blue: 0.14), Color(red: 0.82, green: 0.0, blue: 0.0), Color(red: 1.0, green: 0.14, blue: 0.14)]
+                                : [Color(red: 0.42, green: 0.0, blue: 0.0), Color(red: 0.16, green: 0.0, blue: 0.0), Color(red: 0.42, green: 0.0, blue: 0.0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        : LinearGradient(
+                            colors: [Color.black.opacity(0.96), Color(red: 0.07, green: 0.07, blue: 0.08), Color.black.opacity(0.96)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                 )
                 .padding(8)
                 .overlay {
@@ -875,70 +1249,89 @@ private struct DeveloperConsoleFrame: View {
                                 }
 
                                 if showStartupSequence {
-                                    StartupSequenceView(elapsed: startupElapsed)
+                                    StartupSequenceView(
+                                        elapsed: startupElapsed,
+                                        showFullSequence: startupShowFullSequence,
+                                        armedText: startupArmedText
+                                    )
                                         .padding(.horizontal, 10)
                                         .padding(.top, 24)
                                         .padding(.bottom, 8)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                                 }
                             }
+                        } else if celebrationActive {
+                            Text("CONGRATULATIONS!")
+                                .font(.system(size: min(width * 0.102, 31), weight: .black, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.98))
+                                .minimumScaleFactor(0.62)
+                                .multilineTextAlignment(.center)
+                                .shadow(color: Color.black.opacity(0.45), radius: 3)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        } else if let centeredStatusMessage {
+                            Text(centeredStatusMessage)
+                                .font(.system(size: min(width * 0.086, 26), weight: .black, design: .monospaced))
+                                .foregroundStyle(centeredStatusColor)
+                                .minimumScaleFactor(0.7)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         } else {
                             ZStack {
                                 if isHintVisible {
                                     Text(promptText.replacingOccurrences(of: "hint:", with: "", options: [.caseInsensitive], range: nil).trimmingCharacters(in: .whitespaces))
-                                        .font(.system(size: hintFontSize(for: promptText), weight: .black, design: .monospaced))
-                                        .foregroundStyle(Color.orange.opacity(0.98))
+                                        .font(.system(size: hintFontSize(for: promptText) * 1.15, weight: .black, design: .monospaced))
+                                        .foregroundStyle(Color(red: 0.2, green: 0.08, blue: 0.0).opacity(0.98))
                                         .multilineTextAlignment(.center)
                                         .lineLimit(nil)
                                         .minimumScaleFactor(0.5)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                                 } else {
-                                    HStack(alignment: .top) {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("WALLET")
-                                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                                .foregroundStyle(Color.white.opacity(0.9))
-                                            Text(bankText)
-                                                .font(.system(size: 16, weight: .black, design: .monospaced))
-                                                .foregroundStyle(Color.green.opacity(0.96))
-                                        }
+                                    VStack(spacing: 14) {
+                                        HStack(alignment: .top) {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("WALLET")
+                                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                                    .foregroundStyle(Color.white.opacity(0.9))
+                                                Text(bankText)
+                                                    .font(.system(size: 16, weight: .black, design: .monospaced))
+                                                    .foregroundStyle(Color.green.opacity(0.96))
+                                            }
 
-                                        Spacer(minLength: 8)
+                                            Spacer(minLength: 8)
 
-                                        VStack(alignment: .trailing, spacing: 2) {
-                                            Text("HIGH SCORE")
-                                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                                .foregroundStyle(Color.white.opacity(0.9))
-                                            Text(highScoreText)
-                                                .font(.system(size: 16, weight: .black, design: .monospaced))
-                                                .foregroundStyle(Color.green.opacity(0.96))
+                                            if let beginnerRoundStatusText {
+                                                Text(beginnerRoundStatusText)
+                                                    .font(.system(size: min(width * 0.06, 14), weight: .black, design: .monospaced))
+                                                    .foregroundStyle(Color.green.opacity(0.96))
+                                                    .lineLimit(1)
+                                                    .minimumScaleFactor(0.82)
+                                                    .frame(maxWidth: .infinity, alignment: .center)
+                                            }
+
+                                            Spacer(minLength: 8)
+
+                                            VStack(alignment: .trailing, spacing: 2) {
+                                                Text("HIGH SCORE")
+                                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                                    .foregroundStyle(Color.white.opacity(0.9))
+                                                Text(highScoreText)
+                                                    .font(.system(size: 16, weight: .black, design: .monospaced))
+                                                    .foregroundStyle(Color.green.opacity(0.96))
+                                            }
                                         }
+                                        .frame(maxWidth: .infinity)
+
+                                        Spacer(minLength: 0)
+
+                                        DeveloperTVStreakMeterView(
+                                            litColumns: streakMeterLitColumns,
+                                            failureActive: streakMeterFailureActive,
+                                            failureVisibleColumns: streakMeterFailureVisibleColumns
+                                        )
+                                        .frame(maxWidth: .infinity)
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .frame(maxHeight: .infinity, alignment: .top)
-
-                                    VStack(spacing: 4) {
-                                        Text("PHASE 1")
-                                            .font(.system(size: 16, weight: .black, design: .monospaced))
-                                            .foregroundStyle(Color.red.opacity(0.96))
-                                        Text(roundTitle)
-                                            .font(.system(size: 16, weight: .black, design: .monospaced))
-                                            .foregroundStyle(Color.blue.opacity(0.96))
-                                        Text("\(stringTitle)   \(fretTitle)")
-                                            .font(.system(size: 15, weight: .black, design: .monospaced))
-                                            .foregroundStyle(Color.yellow.opacity(0.96))
-
-                                        if !promptText.isEmpty {
-                                            Text(promptText)
-                                                .font(.system(size: 12, weight: .black, design: .monospaced))
-                                                .foregroundStyle(Color.orange.opacity(0.98))
-                                                .multilineTextAlignment(.center)
-                                                .lineLimit(3)
-                                                .minimumScaleFactor(0.75)
-                                                .padding(.top, 4)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
                             }
                             .multilineTextAlignment(.leading)
@@ -964,473 +1357,83 @@ private struct DeveloperConsoleFrame: View {
     }
 }
 
-private struct HighlightWindowShape: InsettableShape {
-    let cornerRadius: CGFloat
-    var insetAmount: CGFloat = 0
+private struct DeveloperTVStreakMeterView: View {
+    let litColumns: Int
+    let failureActive: Bool
+    let failureVisibleColumns: Int
 
-    func path(in rect: CGRect) -> Path {
-        let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
-        let radius = max(cornerRadius - insetAmount, 0)
-        return RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: insetRect)
-    }
-
-    func inset(by amount: CGFloat) -> some InsettableShape {
-        var copy = self
-        copy.insetAmount += amount
-        return copy
-    }
-}
-
-private struct WhiteNoteBoxOverlay: View {
-    let centerY: CGFloat
-    let availableSize: CGSize
-    let boxHeight: CGFloat
-    let neckWidth: CGFloat
-    let activeStringNumbers: [Int]
-    let answerFeedback: ThumbGlowState?
-    let currentQuestionIsAccidental: Bool
-    let blinkingActive: Bool
-    let blinkOrange: Bool
-
-    private let totalStrings: Int = 6
-    private let stratNutWidthInches: CGFloat = 1.650
-    private let stratStringSpanInches: CGFloat = 1.362
+    private let totalColumns: Int = 20
 
     var body: some View {
-        let clampedBoxHeight = min(boxHeight, availableSize.height)
-        let nutWidth = neckWidth * 0.99
-        let overallWidth = availableSize.width
-        let overallPadding = (overallWidth - nutWidth) / 2
+        let activeColumns = min(max(litColumns, 0), totalColumns)
+        let visibleFailureColumns = min(max(failureVisibleColumns, 0), totalColumns)
 
-        let widthPerInch = nutWidth / stratNutWidthInches
-        let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
-        let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
-        let grooveCenters = (0..<totalStrings).map { index in
-            overallPadding + edgeMargin + CGFloat(index) * interStringSpacing
-        }
+        VStack(spacing: 4) {
+            ForEach(0..<2, id: \.self) { _ in
+                HStack(spacing: 3) {
+                    ForEach(0..<totalColumns, id: \.self) { index in
+                        let isLit: Bool = {
+                            if failureActive {
+                                return index < visibleFailureColumns
+                            }
+                            return index < activeColumns
+                        }()
+                        let isTwentiethColumn = index == totalColumns - 1
+                        let isWarningColumn = index >= 15
+                        let fillColor: Color = {
+                            guard isLit else { return Color(red: 0.12, green: 0.14, blue: 0.12).opacity(0.42) }
+                            if failureActive {
+                                return Color(red: 1.0, green: 0.22, blue: 0.18).opacity(0.96)
+                            }
+                            if isTwentiethColumn {
+                                return Color(red: 0.35, green: 0.66, blue: 1.0).opacity(0.96)
+                            }
+                            if isWarningColumn {
+                                return Color(red: 1.0, green: 0.82, blue: 0.16).opacity(0.96)
+                            }
+                            return Color(red: 0.58, green: 1.0, blue: 0.22).opacity(0.96)
+                        }()
+                        let strokeColor: Color = {
+                            guard isLit else { return Color.white.opacity(0.08) }
+                            if failureActive {
+                                return Color(red: 0.7, green: 0.05, blue: 0.04).opacity(0.95)
+                            }
+                            if isTwentiethColumn {
+                                return Color(red: 0.06, green: 0.22, blue: 0.62).opacity(0.94)
+                            }
+                            if isWarningColumn {
+                                return Color(red: 0.72, green: 0.46, blue: 0.0).opacity(0.9)
+                            }
+                            return Color(red: 0.12, green: 0.4, blue: 0.05).opacity(0.92)
+                        }()
+                        let shadowColor: Color = {
+                            guard isLit else { return .clear }
+                            if failureActive {
+                                return Color.red.opacity(0.75)
+                            }
+                            if isTwentiethColumn {
+                                return Color.blue.opacity(0.75)
+                            }
+                            if isWarningColumn {
+                                return Color.yellow.opacity(0.65)
+                            }
+                            return Color.green.opacity(0.75)
+                        }()
 
-        let minCenterSpacing = grooveCenters.enumerated().dropFirst().map { idx, center in
-            center - grooveCenters[idx - 1]
-        }.min() ?? interStringSpacing
-        let spacingGap = max(minCenterSpacing * 0.12, 6)
-        let maxBoxWidthFromSpacing = max(minCenterSpacing - spacingGap, 0)
-        let boxWidth = min(clampedBoxHeight * 1.8, maxBoxWidthFromSpacing)
-        let activeSet = Set(activeStringNumbers)
-
-        return ZStack {
-            ForEach(0..<totalStrings, id: \.self) { index in
-                let stringNumber = totalStrings - index
-                let isActive = activeSet.contains(stringNumber)
-                let fillColor: Color = {
-                    guard isActive else { return .clear }
-                    switch answerFeedback {
-                    case .green:
-                        return Color(red: 0.64, green: 0.98, blue: 0.70).opacity(0.95)
-                    case .red:
-                        return Color(red: 1.0, green: 0.62, blue: 0.58).opacity(0.95)
-                    default:
-                        if blinkingActive {
-                            return blinkOrange ? Color(red: 1.0, green: 0.56, blue: 0.00).opacity(0.95) : Color.white.opacity(0.95)
-                        }
-                        return currentQuestionIsAccidental ? Color.black.opacity(0.95) : Color.white.opacity(0.92)
-                    }
-                }()
-                let strokeColor: Color = {
-                    guard isActive else { return .clear }
-                    switch answerFeedback {
-                    case .green: return Color(red: 0.04, green: 0.42, blue: 0.12).opacity(0.9)
-                    case .red: return Color(red: 0.48, green: 0.06, blue: 0.06).opacity(0.9)
-                    default:
-                        if blinkingActive {
-                            return Color.black.opacity(0.8)
-                        }
-                        return currentQuestionIsAccidental ? Color.white.opacity(0.86) : Color.black.opacity(0.72)
-                    }
-                }()
-                let auraColor: Color = {
-                    guard isActive else { return .clear }
-                    switch answerFeedback {
-                    case .green: return Color(red: 0.38, green: 0.92, blue: 0.45).opacity(0.35)
-                    case .red: return Color(red: 0.92, green: 0.28, blue: 0.20).opacity(0.35)
-                    default:
-                        if blinkingActive {
-                            return blinkOrange ? Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35) : Color.white.opacity(0.35)
-                        }
-                        return currentQuestionIsAccidental ? Color.black.opacity(0.22) : Color.white.opacity(0.38)
-                    }
-                }()
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(fillColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(strokeColor, lineWidth: 2)
-                    )
-                    .shadow(color: auraColor, radius: 4)
-                    .shadow(color: auraColor.opacity(0.55), radius: 8)
-                    .frame(width: boxWidth, height: clampedBoxHeight)
-                    .position(x: grooveCenters[index], y: centerY)
-            }
-        }
-        .animation(.easeInOut(duration: 0.18), value: activeStringNumbers)
-        .animation(.easeInOut(duration: 0.18), value: answerFeedback)
-    }
-}
-
-private struct MiniTVFrame: View {
-    let text: String
-    let width: CGFloat
-    let height: CGFloat
-    let fontScale: CGFloat
-    let isDarkScreen: Bool
-    let glowTint: Color?
-    let hitTestingEnabled: Bool
-
-    init(text: String, width: CGFloat, height: CGFloat, fontScale: CGFloat, isDarkScreen: Bool = false, glowTint: Color? = nil, hitTestingEnabled: Bool = false) {
-        self.text = text
-        self.width = width
-        self.height = height
-        self.fontScale = fontScale
-        self.isDarkScreen = isDarkScreen
-        self.glowTint = glowTint
-        self.hitTestingEnabled = hitTestingEnabled
-    }
-
-    var body: some View {
-        let bezelWidth = width + 24
-        let bezelHeight = height + 18
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.08, green: 0.08, blue: 0.1), Color(red: 0.18, green: 0.18, blue: 0.2)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.black.opacity(0.65), lineWidth: 3)
-                .padding(3)
-
-            Group {
-                if isDarkScreen {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.black.opacity(0.95),
-                                    Color(red: 0.07, green: 0.07, blue: 0.08),
-                                    Color.black.opacity(0.95)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .fill(fillColor)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                                    .stroke(strokeColor, lineWidth: 0.8)
                             )
-                        )
-                        .padding(8)
-                        .shadow(color: Color.black.opacity(0.55), radius: 12)
-                } else {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            RadialGradient(
-                                gradient: Gradient(stops: [
-                                    .init(color: Color(white: 1.0, opacity: 0.85), location: 0.0),
-                                    .init(color: Color(red: 1.0, green: 0.96, blue: 0.70), location: 0.08),
-                                    .init(color: Color(red: 1.0, green: 0.78, blue: 0.12), location: 0.28),
-                                    .init(color: Color(red: 1.0, green: 0.56, blue: 0.00), location: 0.40),
-                                    .init(color: Color(red: 0.28, green: 0.12, blue: 0.00), location: 1.0)
-                                ]),
-                                center: .center,
-                                startRadius: 2,
-                                endRadius: 130
-                            )
-                        )
-                        .padding(8)
-                        .overlay(EmptyView())
-                        .shadow(color: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35), radius: 14)
-                        .shadow(color: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.20), radius: 28)
-                }
-            }
-
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.clear)
-                .padding(12)
-                .shadow(color: Color.black.opacity(0.35), radius: 4, x: 0, y: 2)
-
-            Text(text.uppercased())
-                .font(.system(size: max(height * 0.78 * fontScale, 14), weight: .black, design: .default))
-                .fontWidth(.condensed)
-                .kerning(0.9)
-                .allowsTightening(true)
-                .foregroundColor(.black)
-                .minimumScaleFactor(0.45)
-                .padding(.horizontal, 12)
-        }
-        .frame(width: bezelWidth, height: bezelHeight)
-        .overlay {
-            if let glowTint {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(glowTint.opacity(0.78), lineWidth: 1.2)
-                    .padding(3)
-                    .shadow(color: glowTint.opacity(0.42), radius: 10)
-            }
-        }
-        .allowsHitTesting(hitTestingEnabled)
-    }
-}
-
-private struct RowOneIdentifierOverlay: View {
-    let leftLabel: String
-    let rightLabel: String
-    let size: CGSize
-    let rowHeight: CGFloat
-
-    var body: some View {
-        let bannerFont = UIFont.systemFont(ofSize: 18, weight: .semibold)
-        let measuredWidth = max(
-            textWidth(for: leftLabel, font: bannerFont),
-            textWidth(for: rightLabel, font: bannerFont),
-            textWidth(for: "Open Strings", font: bannerFont)
-        )
-        let bannerWidth = measuredWidth + 32
-        let bannerHeight = max(min(rowHeight * 0.66, 50), 40)
-
-        return HStack(spacing: 16) {
-            MiniTVFrame(text: leftLabel, width: bannerWidth, height: bannerHeight, fontScale: 0.82)
-            MiniTVFrame(text: rightLabel, width: bannerWidth, height: bannerHeight, fontScale: 0.82)
-        }
-        .frame(width: size.width, height: rowHeight)
-        .position(x: size.width / 2, y: rowHeight / 2)
-        .allowsHitTesting(false)
-    }
-
-    private func textWidth(for text: String, font: UIFont) -> CGFloat {
-        let attributes = [NSAttributedString.Key.font: font]
-        return ceil(text.size(withAttributes: attributes).width)
-    }
-}
-
-private enum GuitarStringLayout {
-    static let totalStrings: Int = 6
-    static let highestStringNumber: Int = 6
-    private static let stratNutWidthInches: CGFloat = 1.650
-    private static let stratStringSpanInches: CGFloat = 1.362
-
-    static func stringCenters(containerWidth: CGFloat, neckWidth: CGFloat) -> [CGFloat] {
-        guard containerWidth > 0, neckWidth > 0 else {
-            return Array(repeating: containerWidth / 2, count: totalStrings)
-        }
-
-        let nutWidth = neckWidth * 0.99
-        let overallPadding = (containerWidth - nutWidth) / 2
-        let widthPerInch = nutWidth / stratNutWidthInches
-        let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
-        let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
-
-        return (0..<totalStrings).map { index in
-            overallPadding + edgeMargin + CGFloat(index) * interStringSpacing
-        }
-    }
-}
-
-private struct StringLineOverlay: View {
-    let neckWidth: CGFloat
-    let horizontalPadding: CGFloat
-    let stringTopY: CGFloat
-    private let bottomClearance: CGFloat = 10
-
-    var body: some View {
-        GeometryReader { geo in
-            let clippedTopY = min(max(stringTopY, 0), geo.size.height)
-            let clippedBottomY = max(clippedTopY, geo.size.height - bottomClearance)
-            let clippedHeight = max(clippedBottomY - clippedTopY, 0)
-            let grooveCenters = GuitarStringLayout.stringCenters(containerWidth: geo.size.width, neckWidth: neckWidth)
-
-            ZStack {
-                ForEach(0..<GuitarStringLayout.totalStrings, id: \.self) { index in
-                    let stringX = grooveCenters[index]
-                    let isLowString = index <= 2
-                    let stringNumber = GuitarStringLayout.highestStringNumber - index
-                    
-                    if isLowString {
-                        BrassStringView(
-                            stringX: stringX,
-                            stringHeight: clippedHeight,
-                            stringTopY: clippedTopY,
-                            stringNumber: stringNumber
-                        )
-                    } else {
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.9, green: 0.9, blue: 0.85),
-                                        Color(red: 0.7, green: 0.7, blue: 0.65),
-                                        Color(red: 0.5, green: 0.5, blue: 0.45)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .frame(width: 1.5, height: clippedHeight)
-                            .position(x: stringX, y: clippedTopY + clippedHeight / 2)
+                            .shadow(color: shadowColor, radius: isLit ? 3 : 0)
                     }
                 }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-private struct BrassStringView: View {
-    let stringX: CGFloat
-    let stringHeight: CGFloat
-    let stringTopY: CGFloat
-    let stringNumber: Int
-    
-    private var stringThickness: CGFloat {
-        switch stringNumber {
-        case 6: return 4.0
-        case 5: return 3.5
-        case 4: return 3.0
-        default: return 2.5
         }
     }
-    
-    var body: some View {
-        RoundedRectangle(cornerRadius: stringThickness / 2, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.96, green: 0.94, blue: 0.88),
-                        Color(red: 0.82, green: 0.69, blue: 0.47),
-                        Color(red: 0.65, green: 0.50, blue: 0.30),
-                        Color(red: 0.85, green: 0.75, blue: 0.60)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: stringThickness / 2)
-                    .stroke(Color.black.opacity(0.2), lineWidth: 0.3)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: stringThickness / 2)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.6), .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.3), radius: 1, x: 0, y: 0.5)
-            .frame(width: stringThickness, height: max(stringHeight, 2))
-            .position(x: stringX, y: stringTopY + stringHeight / 2)
-    }
-}
-
-private struct BrassStringSegment: View {
-    let width: CGFloat
-    let height: CGFloat
-    let segmentIndex: Int
-    let totalSegments: Int
-    
-    var body: some View {
-        RoundedRectangle(cornerRadius: width / 2, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.96, green: 0.94, blue: 0.88),
-                        Color(red: 0.82, green: 0.69, blue: 0.47),
-                        Color(red: 0.65, green: 0.50, blue: 0.30),
-                        Color(red: 0.85, green: 0.75, blue: 0.60)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: width / 2)
-                    .stroke(Color.black.opacity(0.2), lineWidth: 0.3)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: width / 2)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.6), .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.3), radius: 1, x: 0, y: 0.5)
-            .frame(width: width, height: max(height, 2))
-    }
-}
-
-private enum FretMath {
-    static func fretPositionRatios(totalFrets: Int, scaleLength: Double) -> [CGFloat] {
-        guard totalFrets > 0, scaleLength > 0 else { return [] }
-        return (0...totalFrets).map { fret in
-            let distance = scaleLength - scaleLength / pow(2.0, Double(fret) / 12.0)
-            return CGFloat(distance / scaleLength)
-        }
-    }
-
-    static func offsetRatio(for fretStart: Int, fretRatios: [CGFloat]) -> CGFloat {
-        guard !fretRatios.isEmpty else { return 0 }
-        let clampedIndex = min(max(fretStart, 0), fretRatios.count - 1)
-        return fretRatios[clampedIndex]
-    }
-
-    static func distanceRatio(for fretPosition: CGFloat, scaleLength: Double) -> CGFloat {
-        guard scaleLength > 0 else { return 0 }
-        let semitoneRatio = pow(2.0, Double(fretPosition) / 12.0)
-        let distance = scaleLength - scaleLength / semitoneRatio
-        return CGFloat(distance / scaleLength)
-    }
-}
-
-private func baselineNutTargetY(highlightTopGridLineY: CGFloat, gridRowHeight: CGFloat) -> CGFloat {
-    highlightTopGridLineY + 2 * gridRowHeight
-}
-
-private func resolvedNeckTopY(
-    currentFretStart: Int,
-    nutTargetY: CGFloat,
-    highlightCenterY: CGFloat,
-    activeMidpoint: CGFloat
-) -> CGFloat {
-    if currentFretStart == 0 {
-        return nutTargetY
-    }
-    return highlightCenterY - activeMidpoint
-}
-
-private enum AnswerSide {
-    case left
-    case right
-}
-
-private enum GameplayModeVariant {
-    case freestyle
-    case beat
-    case chord
-}
-
-private enum LayoutMode {
-    case beginner
-    case maestro
 }
 
 struct ContentView: View {
@@ -1550,7 +1553,7 @@ struct ContentView: View {
         1: "E"
     ]
     private let phaseOneHintByString: [Int: String] = [
-        1: "OLD MACDONALD HAS A ..?",
+        1: "Old McDonald has a farm...?",
         2: "What note is a fourth below E?",
         3: "What note is a third below B?",
         4: "What note is a fourth below G?",
@@ -1603,6 +1606,20 @@ struct ContentView: View {
     @State private var questionBoxPulsePhase: Bool = false
     @State private var nextQuestionBoxPulseDate: Date? = nil
     @State private var questionBoxIntroProgress: CGFloat = 0
+    @State private var streakMeterLitColumns: Int = 0
+    @State private var streakMeterFailureActive: Bool = false
+    @State private var streakMeterFailureVisibleColumns: Int = 0
+    @State private var beginnerCorrectAnswersAtCurrentFret: Int = 0
+    @State private var lastPromptedCorrectNote: String? = nil
+    @State private var lastPromptedStringHalf: Int? = nil
+    @State private var lastPromptedStringNumber: Int? = nil
+    @State private var recentPromptedCorrectNotes: [String] = []
+    @State private var beginnerAnswerBoxReady: Bool = false
+    @State private var beginnerAutoPlayEnabled: Bool = false
+    @State private var beginnerAutoPlayNextDate: Date? = nil
+    @State private var beginnerCoursePhase: BeginnerCoursePhase = .round1Ascending
+    @State private var beginnerCelebrationFlashOn: Bool = false
+    @State private var beginnerCelebrationNextFlashDate: Date? = nil
 
     private enum StartupSpeechPhase {
         case idle
@@ -1617,6 +1634,54 @@ struct ContentView: View {
     private let audioEngineEnabled: Bool = false
     private let speakBeatTicks: Bool = false
     private let speakGameplayPrompts: Bool = false
+
+    private var beginnerRoundStatusText: String? {
+        guard layoutMode == .beginner else { return nil }
+        switch beginnerCoursePhase {
+        case .round1Ascending:
+            return "BEGINNER ROUND 1"
+        case .round2Descending:
+            return "BEGINNER ROUND 2"
+        case .round1Celebration, .round2Arming, .round2Celebration:
+            return nil
+        }
+    }
+
+    private var beginnerCenteredStatusMessage: String? {
+        guard layoutMode == .beginner else { return nil }
+        if beginnerCoursePhase == .round2Arming {
+            return "BEGINNER ROUND 2\nARMED"
+        }
+        return nil
+    }
+
+    private var beginnerCenteredStatusColor: Color {
+        beginnerCelebrationFlashOn ? Color.green.opacity(0.98) : Color.green.opacity(0.28)
+    }
+
+    private var beginnerCelebrationActive: Bool {
+        layoutMode == .beginner && (beginnerCoursePhase == .round1Celebration || beginnerCoursePhase == .round2Celebration)
+    }
+
+    private var beginnerAcceptsGameplayAnswers: Bool {
+        switch beginnerCoursePhase {
+        case .round1Ascending, .round2Descending:
+            return true
+        case .round1Celebration, .round2Arming, .round2Celebration:
+            return false
+        }
+    }
+
+    private var beginnerUsesFlats: Bool {
+        layoutMode == .beginner && beginnerCoursePhase == .round2Descending
+    }
+
+    private var beginnerStartupArmedText: String {
+        if layoutMode == .beginner, beginnerCoursePhase == .round2Arming || beginnerCoursePhase == .round2Descending {
+            return "BEGINNER ROUND 2 ARMED"
+        }
+        return layoutMode == .beginner ? "BEGINNER MODE ARMED" : "Memorization Sequence Armed"
+    }
 
     init(
         onMenuSelection: ((GameplayMenuOption) -> Void)? = nil,
@@ -1771,7 +1836,11 @@ struct ContentView: View {
                 guard startupSequenceActivated else {
                     return ("", .clear, false, .systemOnline)
                 }
-                return StartupSequenceView.state(for: startupSequenceElapsed)
+                return StartupSequenceView.state(
+                    for: startupSequenceElapsed,
+                    showFullSequence: layoutMode != .beginner,
+                    armedText: layoutMode == .beginner ? "BEGINNER MODE ARMED" : "Memorization Sequence Armed"
+                )
             }()
             let screensaverThumbState: ThumbGlowState = {
                 guard startupState.isVisible else { return .neutral }
@@ -1780,6 +1849,11 @@ struct ContentView: View {
                 case .phaseOne: return .red
                 case .armed: return .green
                 }
+            }()
+            let beginnerButtonState: ThumbGlowState = {
+                guard layoutMode == .beginner else { return .neutral }
+                guard startupSequenceActivated, startupState.phase == .armed, startupState.isVisible else { return .neutral }
+                return .green
             }()
             let effectiveLeftThumbState = isCodeScreensaverMode ? screensaverThumbState : leftThumbState
             let effectiveRightThumbState = isCodeScreensaverMode ? screensaverThumbState : rightThumbState
@@ -1891,7 +1965,7 @@ struct ContentView: View {
                             .position(x: proxy.size.width / 2, y: guideBoxCenterY)
 
                         ForEach(Array(fretboardStrings.enumerated()), id: \.offset) { index, stringNumber in
-                            let note = noteName(forString: stringNumber, fret: max(currentRound, 0), useFlats: false)
+                            let note = noteName(forString: stringNumber, fret: max(currentRound, 0), useFlats: beginnerUsesFlats)
                             Text(note)
                                 .font(.system(size: guideBoxHeight * 0.5, weight: .black, design: .monospaced))
                                 .foregroundStyle(Color.white)
@@ -1931,7 +2005,17 @@ struct ContentView: View {
                     highScoreText: "$\(highScoreDollars)",
                     promptText: developerPromptText,
                     startupElapsed: startupSequenceElapsed,
-                    showStartupSequence: startupSequenceActivated
+                    showStartupSequence: startupSequenceActivated,
+                    startupShowFullSequence: layoutMode != .beginner,
+                    startupArmedText: beginnerStartupArmedText,
+                    streakMeterLitColumns: streakMeterLitColumns,
+                    streakMeterFailureActive: streakMeterFailureActive,
+                    streakMeterFailureVisibleColumns: streakMeterFailureVisibleColumns,
+                    beginnerRoundStatusText: beginnerRoundStatusText,
+                    celebrationActive: beginnerCelebrationActive,
+                    celebrationFlashOn: beginnerCelebrationFlashOn,
+                    centeredStatusMessage: beginnerCenteredStatusMessage,
+                    centeredStatusColor: beginnerCenteredStatusColor
                 )
                 .position(x: proxy.size.width / 2, y: topStatusCenterY)
                 .allowsHitTesting(false)
@@ -1940,8 +2024,9 @@ struct ContentView: View {
                 let introScale = max(questionBoxIntroProgress, 0.001)
                 let introOffsetY = (1 - questionBoxIntroProgress) * ((proxy.size.height / 2) - topScreenY)
                 let questionBoxOffsetY = (1 - questionBoxIntroProgress) * ((proxy.size.height / 2) - orangeGreenUnitCenterY)
-                let shouldBlinkQuestionBox = !isCodeScreensaverMode && !isResolvingAnswer
+                let shouldBlinkQuestionBox = false
                 let shouldShowQuestionUI = !isCodeScreensaverMode && !startupSequenceActivated && questionBoxIntroProgress > 0.0
+                let shouldShowWhiteAnswerBox = shouldShowQuestionUI && (layoutMode != .beginner || beginnerAnswerBoxReady)
 
                 if shouldShowQuestionUI {
                     HStack(spacing: screenPairSpacing) {
@@ -1983,20 +2068,24 @@ struct ContentView: View {
                         .accessibilityHidden(!showMaestroOverlays)
                         .opacity(codenameNemoEnabled ? 0 : (showMaestroOverlays ? introScale : 0))
 
-                    WhiteNoteBoxOverlay(
-                        centerY: orangeGreenUnitCenterY,
-                        availableSize: proxy.size,
-                        boxHeight: gridRowHeight * 0.9,
-                        neckWidth: neckWidth,
-                        activeStringNumbers: activePickedStringNumbers,
-                        answerFeedback: activeAnswerFeedback,
-                        currentQuestionIsAccidental: currentQuestionIsAccidental,
-                        blinkingActive: shouldBlinkQuestionBox,
-                        blinkOrange: questionBoxPulsePhase
-                    )
-                    .allowsHitTesting(false)
-                    .offset(y: questionBoxOffsetY)
-                    .opacity(codenameNemoEnabled ? 0 : initialGameplayDimOpacity)
+                    if shouldShowWhiteAnswerBox {
+                        WhiteNoteBoxOverlay(
+                            centerY: orangeGreenUnitCenterY,
+                            availableSize: proxy.size,
+                            boxHeight: gridRowHeight * 0.9,
+                            neckWidth: neckWidth,
+                            activeStringNumbers: activePickedStringNumbers,
+                            answerFeedback: activeAnswerFeedback,
+                            currentQuestionIsAccidental: currentQuestionIsAccidental,
+                            blinkingActive: shouldBlinkQuestionBox,
+                            blinkOrange: questionBoxPulsePhase,
+                            revealedNoteText: activeAnswerFeedback == .green ? currentCorrectNote : nil,
+                            revealedNoteTextColor: Color.black.opacity(0.96)
+                        )
+                        .allowsHitTesting(false)
+                        .offset(y: questionBoxOffsetY)
+                        .opacity(codenameNemoEnabled ? 0 : initialGameplayDimOpacity)
+                    }
                 }
 
                 GoldHorizontalPipingLine(width: whitePipingWidth)
@@ -2043,6 +2132,28 @@ struct ContentView: View {
                     .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay(alignment: .topLeading) {
+                if layoutMode == .beginner && !isCodeScreensaverMode {
+                    Toggle(isOn: $beginnerAutoPlayEnabled) {
+                        Text("AUTO")
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                    }
+                    .toggleStyle(.switch)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.black.opacity(0.72))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    )
+                    .position(x: proxy.size.width / 2, y: lowerWhitePipingY + 24)
+                    .opacity(codenameNemoEnabled ? 0 : 1)
+                }
+            }
+            .overlay(alignment: .topLeading) {
                 HStack(spacing: 28) {
                     Button(action: { submitAnswer(.left) }) {
                         ThumbButtonView(
@@ -2071,14 +2182,14 @@ struct ContentView: View {
                 .opacity(codenameNemoEnabled ? 0 : (showMaestroOverlays ? initialGameplayDimOpacity : 0))
             }
             .overlay(alignment: .topLeading) {
-                if !showMaestroOverlays && !isCodeScreensaverMode {
+                if layoutMode == .beginner {
                     let beginnerButtonDiameter = min(max(proxy.size.width * 0.18, 66), 84) * 0.85
                     let beginnerButtonSpacing = beginnerButtonDiameter * 1.62
                     let rowYs = [buttonCenterY - beginnerButtonSpacing, buttonCenterY, buttonCenterY + beginnerButtonSpacing]
                     let leftButtonX = proxy.size.width * 0.2335
                     let rightButtonX = proxy.size.width * 0.7665
-                    let beginnerScreenWidth = lowerScreenWidth * 0.663
-                    let beginnerScreenHeight = lowerScreenHeight * 0.578
+                    let beginnerScreenWidth = lowerScreenWidth * 0.54
+                    let beginnerScreenHeight = lowerScreenHeight * 0.76
                     let screenInset = beginnerButtonDiameter * 0.88
                     let leftScreenX = leftButtonX + screenInset
                     let rightScreenX = rightButtonX - screenInset
@@ -2087,19 +2198,22 @@ struct ContentView: View {
 
                     ZStack {
                         ForEach(0..<3, id: \.self) { idx in
+                            let buttonNote = noteName(forString: leftStrings[idx], fret: max(currentRound, 0), useFlats: beginnerUsesFlats)
                             MiniTVFrame(
-                                text: noteName(forString: leftStrings[idx], fret: max(currentRound, 0), useFlats: false),
+                                text: buttonNote,
                                 width: beginnerScreenWidth,
                                 height: beginnerScreenHeight,
                                 fontScale: 0.78
                             )
                             .position(x: leftScreenX, y: rowYs[idx])
 
-                            Button(action: {}) {
+                            Button(action: {
+                                handleBeginnerConsoleButtonPress(selectedNote: buttonNote)
+                            }) {
                                 ThumbButtonView(
                                     diameter: beginnerButtonDiameter,
                                     label: "",
-                                    state: .neutral
+                                    state: beginnerButtonState
                                 )
                             }
                             .buttonStyle(.plain)
@@ -2108,19 +2222,22 @@ struct ContentView: View {
                         }
 
                         ForEach(0..<3, id: \.self) { idx in
+                            let buttonNote = noteName(forString: rightStrings[idx], fret: max(currentRound, 0), useFlats: beginnerUsesFlats)
                             MiniTVFrame(
-                                text: noteName(forString: rightStrings[idx], fret: max(currentRound, 0), useFlats: false),
+                                text: buttonNote,
                                 width: beginnerScreenWidth,
                                 height: beginnerScreenHeight,
                                 fontScale: 0.78
                             )
                             .position(x: rightScreenX, y: rowYs[idx])
 
-                            Button(action: {}) {
+                            Button(action: {
+                                handleBeginnerConsoleButtonPress(selectedNote: buttonNote)
+                            }) {
                                 ThumbButtonView(
                                     diameter: beginnerButtonDiameter,
                                     label: "",
-                                    state: .neutral
+                                    state: beginnerButtonState
                                 )
                             }
                             .buttonStyle(.plain)
@@ -2146,7 +2263,6 @@ struct ContentView: View {
                             VStack(spacing: 12) {
                                 Button {
                                     layoutMode = .beginner
-                                    isCodeScreensaverMode = false
                                 } label: {
                                     Text("Beginner Console")
                                         .font(.headline)
@@ -2183,7 +2299,6 @@ struct ContentView: View {
                 if assetToNutBottomDelta == nil {
                     assetToNutBottomDelta = 0
                 }
-                guard !introDidRun else { return }
                 introDidRun = true
                 startupSequenceStartDate = .now
                 startupSequenceElapsed = 0
@@ -2194,11 +2309,13 @@ struct ContentView: View {
                 displayedBankDollars = bankDollars
                 showDeveloperPrompt("MODE: \(selectedMode.rawValue.uppercased())")
                 questionBoxIntroProgress = isCodeScreensaverMode ? 0 : 1
+                beginnerAnswerBoxReady = !isCodeScreensaverMode
+                beginnerCoursePhase = .round1Ascending
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in
                 if startupSequenceActivated {
                     startupSequenceElapsed = max(date.timeIntervalSince(startupSequenceStartDate), 0)
-                    let startupState = StartupSequenceView.state(for: startupSequenceElapsed)
+                    let startupState = StartupSequenceView.state(for: startupSequenceElapsed, showFullSequence: layoutMode != .beginner, armedText: beginnerStartupArmedText)
                     handleStartupSpeech(for: startupState.phase)
                 }
 
@@ -2264,6 +2381,59 @@ struct ContentView: View {
                     questionBoxPulsePhase = false
                     nextQuestionBoxPulseDate = nil
                 }
+
+                if beginnerCelebrationActive || beginnerCoursePhase == .round2Arming {
+                    if beginnerCelebrationNextFlashDate == nil {
+                        beginnerCelebrationNextFlashDate = date.addingTimeInterval(0.32)
+                    }
+                    if let beginnerCelebrationNextFlashDate, date >= beginnerCelebrationNextFlashDate {
+                        beginnerCelebrationFlashOn.toggle()
+                        self.beginnerCelebrationNextFlashDate = date.addingTimeInterval(0.32)
+                    }
+                } else {
+                    beginnerCelebrationFlashOn = false
+                    beginnerCelebrationNextFlashDate = nil
+                }
+
+                if layoutMode == .beginner,
+                   beginnerAutoPlayEnabled,
+                   !isCodeScreensaverMode,
+                   !startupSequenceActivated,
+                   beginnerAnswerBoxReady,
+                   beginnerAcceptsGameplayAnswers,
+                   !isResolvingAnswer {
+                    if beginnerAutoPlayNextDate == nil {
+                        beginnerAutoPlayNextDate = date.addingTimeInterval(0.5)
+                    }
+                    if let beginnerAutoPlayNextDate, date >= beginnerAutoPlayNextDate {
+                        self.beginnerAutoPlayNextDate = date.addingTimeInterval(0.5)
+                        submitAnswer(correctAnswerSide)
+                    }
+                } else {
+                    beginnerAutoPlayNextDate = nil
+                }
+            }
+            .onChange(of: beginnerAutoPlayEnabled) { _, isEnabled in
+                guard isEnabled else {
+                    beginnerAutoPlayNextDate = nil
+                    return
+                }
+                guard layoutMode == .beginner, beginnerCoursePhase == .round1Ascending else { return }
+                currentRound = 10
+                isDescendingPhase = false
+                roundStringIndex = 0
+                streakMeterLitColumns = 0
+                streakMeterFailureActive = false
+                streakMeterFailureVisibleColumns = 0
+                beginnerCorrectAnswersAtCurrentFret = 0
+                lastPromptedCorrectNote = nil
+                lastPromptedStringHalf = nil
+                lastPromptedStringNumber = nil
+                recentPromptedCorrectNotes = []
+                activeAnswerFeedback = nil
+                questionBoxAssistActive = false
+                beginnerAutoPlayNextDate = nil
+                prepareCurrentQuestion()
             }
             .offset(y: globalContentShiftY)
         }
@@ -2295,9 +2465,20 @@ struct ContentView: View {
     }
 
     private func startGameFromBeginning() {
-        currentRound = isPhaseDescending ? 12 : 0
+        if layoutMode == .beginner {
+            switch beginnerCoursePhase {
+            case .round1Ascending, .round1Celebration, .round2Arming, .round2Celebration:
+                currentRound = 0
+                isDescendingPhase = false
+            case .round2Descending:
+                currentRound = 12
+                isDescendingPhase = true
+            }
+        } else {
+            currentRound = isPhaseDescending ? 12 : 0
+            isDescendingPhase = isPhaseDescending
+        }
         roundStringIndex = 0
-        isDescendingPhase = isPhaseDescending
         bankDollars = 0
         displayedBankDollars = 0
         walletDollars = 0
@@ -2314,6 +2495,18 @@ struct ContentView: View {
         developerPromptText = ""
         currentCorrectNote = ""
         lastResolvedCorrectNote = nil
+        streakMeterLitColumns = 0
+        streakMeterFailureActive = false
+        streakMeterFailureVisibleColumns = 0
+        beginnerCorrectAnswersAtCurrentFret = 0
+        lastPromptedCorrectNote = nil
+        lastPromptedStringHalf = nil
+        lastPromptedStringNumber = nil
+        recentPromptedCorrectNotes = []
+        beginnerAnswerBoxReady = layoutMode != .beginner
+        beginnerAutoPlayNextDate = nil
+        beginnerCelebrationFlashOn = false
+        beginnerCelebrationNextFlashDate = nil
         prepareCurrentQuestion()
     }
 
@@ -2323,12 +2516,16 @@ struct ContentView: View {
                 startupSequenceActivated = true
                 startupSequenceStartDate = .now
                 startupSequenceElapsed = 0
-                startupSpeechPhase = .pendingSystem
+                startupSpeechPhase = layoutMode == .beginner ? .pendingArmed : .pendingSystem
                 questionBoxIntroProgress = 0
                 return
             }
 
-            let startupState = StartupSequenceView.state(for: startupSequenceElapsed)
+            let startupState = StartupSequenceView.state(
+                for: startupSequenceElapsed,
+                showFullSequence: layoutMode != .beginner,
+                armedText: beginnerStartupArmedText
+            )
             guard startupState.phase == .armed else { return }
             guard !isLaunchTransitionAnimating else { return }
 
@@ -2353,9 +2550,19 @@ struct ContentView: View {
                 withAnimation(.easeOut(duration: 0.6)) {
                     questionBoxIntroProgress = 1
                 }
+                beginnerAnswerBoxReady = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.68) {
+                    if !isCodeScreensaverMode && layoutMode == .beginner {
+                        beginnerAnswerBoxReady = true
+                    }
+                }
             }
             return
 
+        }
+
+        if layoutMode == .beginner && !beginnerAcceptsGameplayAnswers {
+            return
         }
 
         guard force || !isResolvingAnswer else { return }
@@ -2380,8 +2587,8 @@ struct ContentView: View {
             rightThumbState = .neutral
             questionBoxAssistActive = false
             if isCorrect {
-                advanceGame(afterCorrectAnswer: true)
                 isResolvingAnswer = false
+                advanceGame(afterCorrectAnswer: true)
             } else {
                 advanceGame(afterCorrectAnswer: false)
             }
@@ -2413,12 +2620,19 @@ struct ContentView: View {
 
     private func advanceGame(afterCorrectAnswer isCorrect: Bool) {
         if !isCorrect {
-            animateBankResetToZero {
-                startGameFromBeginning()
-                isResolvingAnswer = false
+            beginStreakMeterFailureAnimation {
+                animateBankResetToZero {
+                    startGameFromBeginning()
+                    isResolvingAnswer = false
+                }
             }
             return
         }
+
+        streakMeterFailureActive = false
+        streakMeterFailureVisibleColumns = 0
+        streakMeterLitColumns = min(streakMeterLitColumns + 1, 20)
+        beginnerCorrectAnswersAtCurrentFret = min(beginnerCorrectAnswersAtCurrentFret + 1, 20)
 
         let payout = payoutForRound(currentRound)
         bankDollars += payout
@@ -2426,6 +2640,33 @@ struct ContentView: View {
         walletDollars = bankDollars
         balanceDollars += payout
         highScoreDollars = max(highScoreDollars, bankDollars)
+
+        if layoutMode == .beginner {
+            if beginnerCorrectAnswersAtCurrentFret >= 20 {
+                streakMeterLitColumns = 0
+                streakMeterFailureActive = false
+                streakMeterFailureVisibleColumns = 0
+                beginnerCorrectAnswersAtCurrentFret = 0
+                if beginnerCoursePhase == .round1Ascending {
+                    if currentRound < 12 {
+                        currentRound += 1
+                    } else {
+                        beginBeginnerRoundOneCelebration()
+                        return
+                    }
+                } else {
+                    if currentRound > 0 {
+                        currentRound -= 1
+                    } else {
+                        beginBeginnerRoundTwoCelebration()
+                        return
+                    }
+                }
+            }
+
+            prepareCurrentQuestion()
+            return
+        }
 
         if usesRandomStringOrder {
             roundStringIndex = Int.random(in: 0..<max(activeStringOrder.count, 1))
@@ -2454,7 +2695,45 @@ struct ContentView: View {
     }
 
     private func prepareCurrentQuestion() {
-        let targetString = activeStringOrder[min(max(roundStringIndex, 0), activeStringOrder.count - 1)]
+        let fret = max(currentRound, 0)
+        let useFlats: Bool = {
+            if layoutMode == .beginner {
+                return beginnerUsesFlats
+            }
+            switch modeVariant {
+            case .beat, .chord:
+                return false
+            case .freestyle:
+                return isDescendingPhase
+            }
+        }()
+        let targetString: Int = {
+            if layoutMode == .beginner {
+                let candidateStrings = activeStringOrder.isEmpty ? [1] : activeStringOrder
+                let fallback = candidateStrings.randomElement() ?? candidateStrings[0]
+                let filteredByHalf = candidateStrings.filter {
+                    guard let lastPromptedStringHalf else { return true }
+                    return stringHalf(for: $0) != lastPromptedStringHalf
+                }
+                let halfSource = filteredByHalf.isEmpty ? candidateStrings : filteredByHalf
+                let filteredByNote = halfSource.filter {
+                    let candidateNote = noteName(forString: $0, fret: fret, useFlats: useFlats)
+                    return !recentPromptedCorrectNotes.contains(candidateNote)
+                }
+                let noteSource = filteredByNote.isEmpty ? halfSource : filteredByNote
+                let filteredByEStringPair = noteSource.filter { candidateString in
+                    guard let lastPromptedStringNumber else { return true }
+                    let isEStringPair = Set([candidateString, lastPromptedStringNumber]) == Set([1, 6])
+                    guard isEStringPair else { return true }
+                    let candidateNote = noteName(forString: candidateString, fret: fret, useFlats: useFlats)
+                    let lastNote = noteName(forString: lastPromptedStringNumber, fret: fret, useFlats: useFlats)
+                    return candidateNote != lastNote
+                }
+                let source = filteredByEStringPair.isEmpty ? noteSource : filteredByEStringPair
+                return source.randomElement() ?? fallback
+            }
+            return activeStringOrder[min(max(roundStringIndex, 0), activeStringOrder.count - 1)]
+        }()
 
         if modeVariant == .chord {
             let partner = chordPartner(for: targetString, in: selectedMode == .oneHand ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6])
@@ -2464,15 +2743,6 @@ struct ContentView: View {
         }
 
         let noteString = currentPromptStrings.first ?? targetString
-        let fret = max(currentRound, 0)
-        let useFlats: Bool = {
-            switch modeVariant {
-            case .beat, .chord:
-                return false
-            case .freestyle:
-                return isDescendingPhase
-            }
-        }()
         let correctNote: String
         let incorrectNote: String
         if modeVariant == .chord, currentPromptStrings.count > 1 {
@@ -2499,6 +2769,15 @@ struct ContentView: View {
         }
 
         currentCorrectNote = correctNote
+        lastPromptedCorrectNote = correctNote
+        lastPromptedStringHalf = stringHalf(for: noteString)
+        lastPromptedStringNumber = noteString
+        if layoutMode == .beginner {
+            recentPromptedCorrectNotes.append(correctNote)
+            if recentPromptedCorrectNotes.count > 4 {
+                recentPromptedCorrectNotes.removeFirst(recentPromptedCorrectNotes.count - 4)
+            }
+        }
 
         activePickedStringNumbers = currentPromptStrings
         currentQuestionIsAccidental = correctNote.contains("#") || correctNote.contains("b")
@@ -2524,9 +2803,19 @@ struct ContentView: View {
     }
 
     private func payoutForRound(_ round: Int) -> Int {
+        if layoutMode == .beginner {
+            return 5
+        }
         let clamped = min(max(round, 0), 20)
         let baseValue = Int(pow(2.0, Double(clamped)))
         return max(1, Int((Double(baseValue) * modePayoutMultiplier).rounded()))
+    }
+
+    private func stringHalf(for string: Int) -> Int {
+        if (1...3).contains(string) {
+            return 0
+        }
+        return 1
     }
 
     private func animateBankResetToZero(completion: @escaping () -> Void) {
@@ -2548,6 +2837,32 @@ struct ContentView: View {
                     bankDollars = 0
                     displayedBankDollars = 0
                     walletDollars = 0
+                    completion()
+                }
+            }
+        }
+    }
+
+    private func beginStreakMeterFailureAnimation(completion: @escaping () -> Void) {
+        let litColumns = min(max(streakMeterLitColumns, 0), 20)
+        guard litColumns > 0 else {
+            streakMeterFailureActive = false
+            streakMeterFailureVisibleColumns = 0
+            completion()
+            return
+        }
+
+        streakMeterFailureActive = true
+        streakMeterFailureVisibleColumns = litColumns
+
+        let interval: Double = 0.05
+        for step in 1...litColumns {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(step) * interval)) {
+                streakMeterFailureVisibleColumns = max(litColumns - step, 0)
+                if step == litColumns {
+                    streakMeterLitColumns = 0
+                    streakMeterFailureActive = false
+                    streakMeterFailureVisibleColumns = 0
                     completion()
                 }
             }
@@ -2639,7 +2954,7 @@ struct ContentView: View {
             }
         case .armed:
             if startupSpeechPhase == .pendingArmed {
-                speakStartup("MEMORIZATION SEQUENCE ARMED")
+                speakStartup(layoutMode == .beginner ? "BEGINNER MODE ARMED" : "MEMORIZATION SEQUENCE ARMED")
                 startupSpeechPhase = .idle
             }
         }
@@ -2647,6 +2962,33 @@ struct ContentView: View {
 
     private func speakStartup(_ phrase: String) {
         audioEngine.speakStartupAlert(phrase, volume: stringVolume)
+    }
+
+    private func handleBeginnerConsoleButtonPress(selectedNote: String) {
+        guard layoutMode == .beginner else { return }
+        guard !isResolvingAnswer else { return }
+        if beginnerCoursePhase == .round1Celebration {
+            armBeginnerRoundTwo()
+            return
+        }
+        if beginnerCoursePhase == .round2Celebration {
+            beginnerCoursePhase = .round1Ascending
+            startGameFromBeginning()
+            return
+        }
+        if beginnerCoursePhase == .round2Arming {
+            beginBeginnerRoundTwo()
+            return
+        }
+        if isCodeScreensaverMode {
+            submitAnswer(.left)
+            return
+        }
+
+        let selectedSide: AnswerSide = selectedNote == currentCorrectNote
+            ? correctAnswerSide
+            : (correctAnswerSide == .left ? .right : .left)
+        submitAnswer(selectedSide)
     }
 
     private func handleFretboardButtonPress() {
@@ -2668,6 +3010,60 @@ struct ContentView: View {
                 developerPromptText = ""
             }
         }
+    }
+
+    private func beginBeginnerRoundOneCelebration() {
+        guard layoutMode == .beginner else { return }
+        beginnerCoursePhase = .round1Celebration
+        developerPromptText = ""
+        activeAnswerFeedback = nil
+        questionBoxAssistActive = false
+        beginnerAutoPlayNextDate = nil
+        beginnerCelebrationFlashOn = true
+        beginnerCelebrationNextFlashDate = .now.addingTimeInterval(0.32)
+    }
+
+    private func beginBeginnerRoundTwoCelebration() {
+        guard layoutMode == .beginner else { return }
+        beginnerCoursePhase = .round2Celebration
+        developerPromptText = ""
+        activeAnswerFeedback = nil
+        questionBoxAssistActive = false
+        beginnerAutoPlayNextDate = nil
+        beginnerCelebrationFlashOn = true
+        beginnerCelebrationNextFlashDate = .now.addingTimeInterval(0.32)
+    }
+
+    private func armBeginnerRoundTwo() {
+        guard layoutMode == .beginner else { return }
+        beginnerCoursePhase = .round2Arming
+        developerPromptText = ""
+        activeAnswerFeedback = nil
+        questionBoxAssistActive = false
+        beginnerAutoPlayNextDate = nil
+        beginnerCelebrationFlashOn = true
+        beginnerCelebrationNextFlashDate = .now.addingTimeInterval(0.32)
+    }
+
+    private func beginBeginnerRoundTwo() {
+        guard layoutMode == .beginner else { return }
+        beginnerCoursePhase = .round2Descending
+        isDescendingPhase = true
+        currentRound = 12
+        roundStringIndex = 0
+        streakMeterLitColumns = 0
+        streakMeterFailureActive = false
+        streakMeterFailureVisibleColumns = 0
+        beginnerCorrectAnswersAtCurrentFret = 0
+        lastPromptedCorrectNote = nil
+        lastPromptedStringHalf = nil
+        lastPromptedStringNumber = nil
+        recentPromptedCorrectNotes = []
+        activeAnswerFeedback = nil
+        currentCorrectNote = ""
+        beginnerCelebrationFlashOn = false
+        beginnerCelebrationNextFlashDate = nil
+        prepareCurrentQuestion()
     }
 }
 
