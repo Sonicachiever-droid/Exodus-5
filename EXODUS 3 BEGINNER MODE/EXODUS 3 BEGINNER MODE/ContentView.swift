@@ -2302,6 +2302,11 @@ struct ContentView: View {
             }
             .onAppear {
                 audioSettings.selectInitialBackingTrackIfNeeded(from: BackingTrack.discoverBundledTracks())
+                guitarNoteEngine.configure(
+                    preset: audioSettings.guitarTonePreset,
+                    reverbLevel: audioSettings.reverbLevel,
+                    delayLevel: audioSettings.delayLevel
+                )
                 if assetToNutBottomDelta == nil {
                     assetToNutBottomDelta = 0
                 }
@@ -2325,6 +2330,27 @@ struct ContentView: View {
                     onDone: {
                         showAudioPage = false
                     }
+                )
+            }
+            .onChange(of: audioSettings.guitarTonePreset) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: newValue,
+                    reverbLevel: audioSettings.reverbLevel,
+                    delayLevel: audioSettings.delayLevel
+                )
+            }
+            .onChange(of: audioSettings.reverbLevel) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: audioSettings.guitarTonePreset,
+                    reverbLevel: newValue,
+                    delayLevel: audioSettings.delayLevel
+                )
+            }
+            .onChange(of: audioSettings.delayLevel) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: audioSettings.guitarTonePreset,
+                    reverbLevel: audioSettings.reverbLevel,
+                    delayLevel: newValue
                 )
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in

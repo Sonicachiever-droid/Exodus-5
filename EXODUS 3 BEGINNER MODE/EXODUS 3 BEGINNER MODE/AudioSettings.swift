@@ -4,9 +4,7 @@ import SwiftUI
 enum GuitarTonePreset: String, CaseIterable, Identifiable {
     case acoustic = "Acoustic"
     case electricClean = "Electric Clean"
-    case electricCrunch = "Electric Crunch"
-    case electricDistorted = "Electric Distorted"
-    case ambientDelay = "Ambient / Delay"
+    case electricDirty = "Electric Dirty"
 
     var id: String { rawValue }
 }
