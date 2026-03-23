@@ -1631,9 +1631,11 @@ struct ContentView: View {
     }
 
     @State private var startupSpeechPhase: StartupSpeechPhase = .idle
+    @State private var availableBackingTracks: [BackingTrack] = []
 
     private let audioEngine = GameplayAudioEngine()
     private let guitarNoteEngine = GuitarNoteEngine.shared
+    private let backingTrackEngine = BackingTrackEngine()
     private let audioEngineEnabled: Bool = false
     private let speakBeatTicks: Bool = false
     private let speakGameplayPrompts: Bool = false
@@ -1677,6 +1679,12 @@ struct ContentView: View {
 
     private var beginnerUsesFlats: Bool {
         layoutMode == .beginner && beginnerCoursePhase == .round2Descending
+    }
+
+    private var backingTrackShouldBeActive: Bool {
+        guard layoutMode == .beginner else { return false }
+        guard !isCodeScreensaverMode else { return false }
+        return beginnerCoursePhase == .round1Ascending || beginnerCoursePhase == .round2Descending
     }
 
     private var beginnerStartupArmedText: String {
@@ -2301,12 +2309,14 @@ struct ContentView: View {
                 }
             }
             .onAppear {
-                audioSettings.selectInitialBackingTrackIfNeeded(from: BackingTrack.discoverBundledTracks())
+                availableBackingTracks = BackingTrack.discoverBundledTracks()
+                audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
                 guitarNoteEngine.configure(
                     preset: audioSettings.guitarTonePreset,
                     reverbLevel: audioSettings.reverbLevel,
                     delayLevel: audioSettings.delayLevel
                 )
+                syncBackingTrackPlayback()
                 if assetToNutBottomDelta == nil {
                     assetToNutBottomDelta = 0
                 }
@@ -2326,7 +2336,7 @@ struct ContentView: View {
             .sheet(isPresented: $showAudioPage) {
                 AudioPageView(
                     audioSettings: audioSettings,
-                    availableBackingTracks: BackingTrack.discoverBundledTracks(),
+                    availableBackingTracks: availableBackingTracks,
                     onDone: {
                         showAudioPage = false
                     }
@@ -2352,6 +2362,15 @@ struct ContentView: View {
                     reverbLevel: audioSettings.reverbLevel,
                     delayLevel: newValue
                 )
+            }
+            .onChange(of: audioSettings.backingTrackEnabled) { _, _ in
+                syncBackingTrackPlayback()
+            }
+            .onChange(of: audioSettings.selectedBackingTrackID) { _, _ in
+                syncBackingTrackPlayback()
+            }
+            .onChange(of: audioSettings.selectedBackingArrangement) { _, _ in
+                syncBackingTrackPlayback()
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in
                 if startupSequenceActivated {
@@ -2947,7 +2966,9 @@ struct ContentView: View {
     private func handleGameplayMenuSelection(_ option: GameplayMenuOption) {
         gameplayMenuExpanded = false
         if option == .audio {
-            audioSettings.selectInitialBackingTrackIfNeeded(from: BackingTrack.discoverBundledTracks())
+            availableBackingTracks = BackingTrack.discoverBundledTracks()
+            audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
+            syncBackingTrackPlayback()
             showAudioPage = true
             showDeveloperPrompt("MENU: AUDIO")
             return
@@ -3053,6 +3074,35 @@ struct ContentView: View {
 
     private func playGuitarNote(forString stringNumber: Int, fret: Int, velocity: Float) {
         guitarNoteEngine.play(string: stringNumber, fret: max(fret, 0), velocity: velocity)
+    }
+
+    private func syncBackingTrackPlayback() {
+        backingTrackEngine.configure(
+            arrangement: audioSettings.selectedBackingArrangement,
+            transposeSemitones: currentRound
+        )
+
+        guard !availableBackingTracks.isEmpty else {
+            if audioSettings.backingTrackEnabled {
+                audioSettings.backingTrackEnabled = false
+            }
+            backingTrackEngine.stop()
+            return
+        }
+
+        audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
+        guard audioSettings.backingTrackEnabled, backingTrackShouldBeActive else {
+            backingTrackEngine.stop()
+            return
+        }
+
+        guard let selectedTrackID = audioSettings.selectedBackingTrackID,
+              let selectedTrack = availableBackingTracks.first(where: { $0.id == selectedTrackID }) else {
+            backingTrackEngine.stop()
+            return
+        }
+
+        backingTrackEngine.play(track: selectedTrack)
     }
 
     private func handleFretboardButtonPress() {

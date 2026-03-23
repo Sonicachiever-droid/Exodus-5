@@ -53,7 +53,18 @@ final class AudioSettings {
     var tempoIncreasePerRound: TempoIncreasePerRound = .off
 
     func selectInitialBackingTrackIfNeeded(from tracks: [BackingTrack]) {
-        guard selectedBackingTrackID == nil else { return }
-        selectedBackingTrackID = tracks.first?.id
+        if let selectedBackingTrackID,
+           tracks.contains(where: { $0.id == selectedBackingTrackID }) {
+            return
+        }
+        selectedBackingTrackID = preferredBackingTrack(from: tracks)?.id
+    }
+
+    private func preferredBackingTrack(from tracks: [BackingTrack]) -> BackingTrack? {
+        let beginnerLoops = tracks.filter { $0.resourceName.lowercased().hasPrefix("beginner_loop_") }
+        if let preferredBeginnerLoop = beginnerLoops.max(by: { $0.resourceName.localizedStandardCompare($1.resourceName) == .orderedAscending }) {
+            return preferredBeginnerLoop
+        }
+        return tracks.first
     }
 }

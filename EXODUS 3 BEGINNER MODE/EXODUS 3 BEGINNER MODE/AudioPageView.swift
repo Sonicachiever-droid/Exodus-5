@@ -5,6 +5,10 @@ struct AudioPageView: View {
     let availableBackingTracks: [BackingTrack]
     let onDone: () -> Void
 
+    private var hasBackingTracks: Bool {
+        !availableBackingTracks.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -32,12 +36,14 @@ struct AudioPageView: View {
 
                 Section("Backing Track") {
                     Toggle("Backing Track Enabled", isOn: $audioSettings.backingTrackEnabled)
+                        .disabled(!hasBackingTracks)
 
                     Picker("Arrangement", selection: $audioSettings.selectedBackingArrangement) {
                         ForEach(BackingArrangementPreset.allCases) { preset in
                             Text(preset.rawValue).tag(preset)
                         }
                     }
+                    .disabled(!hasBackingTracks || !audioSettings.backingTrackEnabled)
 
                     if availableBackingTracks.isEmpty {
                         Text("No bundled backing tracks yet")
@@ -51,6 +57,7 @@ struct AudioPageView: View {
                                 Text(track.title).tag(track.id)
                             }
                         }
+                        .disabled(!audioSettings.backingTrackEnabled)
                     }
                 }
 
