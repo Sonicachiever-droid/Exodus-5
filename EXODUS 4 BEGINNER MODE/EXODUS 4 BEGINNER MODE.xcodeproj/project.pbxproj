@@ -105,20 +105,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		E6BBE2252F720AB700F04CC9 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		E6BBE26E2F72846600F04CC9 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -225,8 +211,6 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E64F98A32F6D199700636073 /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-			);
 			projectRoot = "";
 			targets = (
 				E64F98A12F6D199700636073 /* EXODUS 4 BEGINNER MODE */,

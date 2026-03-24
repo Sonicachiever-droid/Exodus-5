@@ -1663,6 +1663,10 @@ struct ContentView: View {
     @State private var isDescendingPhase: Bool = false
     @State private var leftChoiceNote: String = ""
     @State private var rightChoiceNote: String = ""
+    
+    // Chord system integration
+    @StateObject private var chordGenerator = ChordGenerator()
+    @StateObject private var audioEngine = SimpleAudioEngine()
     @State private var correctAnswerSide: AnswerSide = .left
     @State private var isResolvingAnswer: Bool = false
     @State private var activePickedStringNumbers: [Int] = [1]
@@ -1725,7 +1729,7 @@ struct ContentView: View {
     @State private var startupSpeechPhase: StartupSpeechPhase = .idle
     @State private var availableBackingTracks: [BackingTrack] = []
 
-    private let audioEngine = GameplayAudioEngine()
+    private let gameplayAudioEngine = GameplayAudioEngine()
     private let guitarNoteEngine = GuitarNoteEngine.shared
     private let backingTrackEngine = BackingTrackEngine()
     private let audioEngineEnabled: Bool = false
@@ -1897,7 +1901,6 @@ struct ContentView: View {
             )
             let whitePipingWidth = max(proxy.size.width - 7, 0)
             let noteChoiceY = upperWhitePipingY - (lowerScreenHeight / 2) - 2
-            let developerOverlaysEnabled: Bool = false
             let windowTopY = holeCenterY - highlightHeight / 2
             let topStatusOuterWidth = highlightWidth
             let topStatusOuterHeight = max(min(gridRowHeight * 1.35, 120), 74)
@@ -2559,6 +2562,9 @@ struct ContentView: View {
                     arrangement: audioSettings.selectedBackingArrangement,
                     transposeSemitones: newValue
                 )
+                
+                // Update chord accompaniment transposition
+                audioEngine.updateTransposition(round: newValue)
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in
                 if startupSequenceActivated {
@@ -2578,7 +2584,7 @@ struct ContentView: View {
                         self.nextBeatTickDate = nextBeatTickDate.addingTimeInterval(beatInterval)
                         beatPulseActive = true
                         if audioEngineEnabled && speakBeatTicks {
-                            audioEngine.playBeat(volume: beatVolume)
+                            gameplayAudioEngine.playBeat(volume: beatVolume)
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
                             beatPulseActive = false
@@ -2985,8 +2991,24 @@ struct ContentView: View {
         }()
 
         if modeVariant == .chord {
-            let partner = chordPartner(for: targetString, in: selectedMode == .oneHand ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6])
-            currentPromptStrings = Array(Set([targetString, partner])).sorted()
+            // Generate chords based on current fret position
+            chordGenerator.generateChords(for: currentRound, useFlats: false)
+            
+            // Use chord notes to determine prompt strings
+            if chordGenerator.currentChord != nil {
+                let transposedNotes = chordGenerator.getTransposedChordNotes(for: currentRound)
+                // Map notes back to strings (simplified - uses first matching string)
+                currentPromptStrings = transposedNotes.compactMap { note in
+                    (1...6).first { string in
+                        noteName(forString: string, fret: max(currentRound, 0), useFlats: false) == note
+                    }
+                }
+                if currentPromptStrings.isEmpty {
+                    currentPromptStrings = [targetString] // Fallback
+                }
+            } else {
+                currentPromptStrings = [targetString] // Fallback
+            }
         } else {
             currentPromptStrings = [targetString]
         }
@@ -3043,7 +3065,7 @@ struct ContentView: View {
             let promptSpoken = currentPromptStrings.count > 1
                 ? currentPromptStrings.map { "string \($0)" }.joined(separator: " and ")
                 : "string \(targetString)"
-            audioEngine.playNotePrompt(promptSpoken, volume: stringVolume)
+            gameplayAudioEngine.playNotePrompt(promptSpoken, volume: stringVolume)
         }
 
         withAnimation(.easeInOut(duration: 0.9)) {
@@ -3217,12 +3239,13 @@ struct ContentView: View {
     }
 
     private func speakStartup(_ phrase: String) {
-        audioEngine.speakStartupAlert(phrase, volume: stringVolume)
+        gameplayAudioEngine.speakStartupAlert(phrase, volume: stringVolume)
     }
 
     private func handleBeginnerConsoleButtonPress(selectedNote: String, selectedString: Int) {
         guard layoutMode == .beginner else { return }
         guard !isResolvingAnswer else { return }
+        
         if beginnerCoursePhase == .round1Celebration {
             armBeginnerRoundTwo()
             return
@@ -3298,7 +3321,7 @@ struct ContentView: View {
         backingTrackEngine.play(track: selectedTrack)
         isBackingTrackPlaying = backingTrackEngine.isPlaying
         transportStatusDetail = backingTrackEngine.isPlaying ? "AUTO_PLAY_OK" : "AUTO_PLAY_FAILED"
-        playbackPathUsed = backingTrackEngine.isPlaying ? "MIDI_PLAYER" : "NONE"
+        playbackPathUsed = backingTrackEngine.isPlaying ? "SEQUENCER" : "NONE"
     }
 
     private func handleFretboardButtonPress() {
@@ -3313,6 +3336,10 @@ struct ContentView: View {
         manualTransportPlaybackActive = false
         transportStatusDetail = "MANUAL_STOP"
         playbackPathUsed = "NONE"
+        
+        // Stop chord accompaniment
+        audioEngine.stopAccompaniment()
+        
         showDeveloperPrompt("Transport: STOP")
     }
 
@@ -3331,7 +3358,11 @@ struct ContentView: View {
         isBackingTrackPlaying = backingTrackEngine.isPlaying
         manualTransportPlaybackActive = backingTrackEngine.isPlaying
         transportStatusDetail = backingTrackEngine.isPlaying ? "MANUAL_START_OK" : "MANUAL_START_FAILED"
-        playbackPathUsed = backingTrackEngine.isPlaying ? "MIDI_PLAYER" : "NONE"
+        playbackPathUsed = backingTrackEngine.isPlaying ? "SEQUENCER" : "NONE"
+        
+        // Start chord accompaniment
+        audioEngine.startAccompaniment(currentRound: currentRound)
+        
         showDeveloperPrompt("Transport: START \(selectedTrack.resourceName)")
     }
 

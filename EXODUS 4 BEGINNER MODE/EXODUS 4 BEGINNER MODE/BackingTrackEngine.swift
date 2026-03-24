@@ -44,9 +44,11 @@ final class BackingTrackEngine {
         guard arrangement != currentArrangement || normalizedTranspose != currentTransposeSemitones || !hasLoadedVoices else { return }
         currentArrangement = arrangement
         currentTransposeSemitones = normalizedTranspose
+        print("[BackingTrackEngine] Configure: arrangement=\(arrangement.rawValue), transpose=\(normalizedTranspose) semitones")
         loadSamplerVoices(for: arrangement)
         applyArrangementMix()
         applyTranspose()
+        hasLoadedVoices = true
     }
 
     func togglePlayback(for track: BackingTrack) {
@@ -66,6 +68,26 @@ final class BackingTrackEngine {
 
         stop(clearTrackSelection: false)
 
+        // Use sequencer for real-time transposition support during gameplay
+        do {
+            sequencer = AVAudioSequencer(audioEngine: engine)
+            try sequencer.load(from: trackURL, options: [])
+            routeTracksToSamplers()
+            configureLooping()
+            applyArrangementMix()
+            startEngineIfNeeded()
+            sequencer.prepareToPlay()
+            try sequencer.start()
+            currentTrack = track
+            isPlaying = true
+            print("[BackingTrackEngine] Started track \(track.resourceName) via sequencer for transposition support")
+            print("[BackingTrackEngine] Sequencer tracks: \(sequencer.tracks.count), routed to samplers")
+            return
+        } catch {
+            print("[BackingTrackEngine] Sequencer failed for \(track.resourceName): \(error.localizedDescription)")
+        }
+
+        // Fallback to MIDI player (no real-time transposition)
         do {
             midiPlayer = try AVMIDIPlayer(contentsOf: trackURL, soundBankURL: soundbankURL)
             midiPlayer?.prepareToPlay()
@@ -78,29 +100,10 @@ final class BackingTrackEngine {
             }
             currentTrack = track
             isPlaying = true
-            print("▶️ Playing MIDI: \(track.resourceName) with soundbank: \(soundbankURL?.lastPathComponent ?? "NONE")")
+            print("▶️ Playing MIDI: \(track.resourceName) with soundbank: \(soundbankURL?.lastPathComponent ?? "NONE") (no transposition)")
             return
         } catch {
             print("❌ Failed to create AVMIDIPlayer: \(error)")
-        }
-
-        // Fallback to sequencer if MIDI player fails
-        do {
-            sequencer = AVAudioSequencer(audioEngine: engine)
-            try sequencer.load(from: trackURL, options: [])
-            routeTracksToSamplers()
-            configureLooping()
-            applyArrangementMix()
-            startEngineIfNeeded()
-            sequencer.prepareToPlay()
-            try sequencer.start()
-            currentTrack = track
-            isPlaying = true
-            print("[BackingTrackEngine] Started track \(track.resourceName) from \(trackURL.lastPathComponent)")
-            print("[BackingTrackEngine] Sequencer tracks: \(sequencer.tracks.count), routed to samplers")
-            return
-        } catch {
-            print("[BackingTrackEngine] Sequencer failed for \(track.resourceName): \(error.localizedDescription)")
         }
 
         currentTrack = nil
@@ -146,6 +149,7 @@ final class BackingTrackEngine {
         keysSampler.globalTuning = cents
         bassSampler.globalTuning = cents
         drumsSampler.globalTuning = 0
+        print("[BackingTrackEngine] Transpose: \(currentTransposeSemitones) semitones = \(cents) cents")
     }
 
     private func configureLooping() {
