@@ -613,7 +613,7 @@ private struct TransportControlsView: View {
             transportButton(systemName: "stop.fill", action: onStop)
             transportButton(systemName: "play.fill", action: onStart)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -1383,7 +1383,7 @@ private struct DeveloperConsoleFrame: View {
                                             HStack(alignment: .top) {
                                                 let statusLines = beginnerRoundStatusText?.components(separatedBy: "\n") ?? []
                                                 let progressLine = statusLines.indices.contains(2) ? statusLines[2] : ""
-                                                let progressFontSize = adaptiveProgressFontSize(for: progressLine.isEmpty ? scaleRepetitionText : progressLine)
+                                                let progressFontSize = adaptiveProgressFontSize(for: scaleRepetitionText)
 
                                                 VStack(alignment: .leading, spacing: 2) {
                                                     Text("WALLET")
@@ -1444,7 +1444,7 @@ private struct DeveloperConsoleFrame: View {
 
                                             if !startupMappedBlock.isEmpty {
                                                 Text(startupMappedBlock)
-                                                    .font(.system(size: 29.6, weight: .black, design: .monospaced))
+                                                    .font(.system(size: min(width * 0.085, 22), weight: .black, design: .monospaced))
                                                     .foregroundStyle(Color.green.opacity(0.98))
                                                     .minimumScaleFactor(0.3)
                                                     .lineLimit(2)
@@ -1735,6 +1735,10 @@ struct ContentView: View {
     @State private var currentPromptStrings: [Int] = [1]
     @State private var beatQuestionDeadline: Date? = nil
     @State private var showFretboardGuide: Bool = false
+    @State private var isRoundArmed: Bool = true
+    @State private var isRoundPaused: Bool = false
+    @State private var roundRevealElapsedBeats: Double = 0
+    @State private var roundRevealLastTickDate: Date? = nil
     @State private var isBackingTrackPlaying: Bool = false
     @State private var manualTransportPlaybackActive: Bool = false
     @State private var transportStatusDetail: String = "IDLE"
@@ -1867,9 +1871,9 @@ struct ContentView: View {
 
     private var beginnerScaleStages: [BeginnerScaleStage] {
         beginnerScaleTemplates.map { template in
-            let root = transposedSharpNote(template.root, by: beginnerRuntime.scaleCycleSemitoneOffset)
+            let root = transposedNote(template.root, by: beginnerRuntime.scaleCycleSemitoneOffset, useFlats: beginnerUsesFlats)
             let notes = template.intervals.map { interval in
-                transposedSharpNote(template.root, by: beginnerRuntime.scaleCycleSemitoneOffset + interval)
+                transposedNote(template.root, by: beginnerRuntime.scaleCycleSemitoneOffset + interval, useFlats: beginnerUsesFlats)
             }
             let stageTitle = "\(root)\(beginnerChordSuffixDisplay(template.titleSuffix))"
 
@@ -1961,8 +1965,32 @@ struct ContentView: View {
         }
     }
 
+    private var beginnerRoundTwoStartsDescending: Bool {
+        audioSettings.beginnerStartDirection == .descendingFlats
+    }
+
+    private var beginnerRoundTwoStartingFret: Int {
+        min(max(audioSettings.beginnerStartingFret, 0), 12)
+    }
+
+    private var beginnerRoundOneStartsDescending: Bool {
+        audioSettings.beginnerStartDirection == .descendingFlats
+    }
+
+    private var beginnerRoundOneStartingFret: Int {
+        min(max(audioSettings.beginnerStartingFret, 0), 12)
+    }
+
+    private var isInitialRoundOneScaleIntro: Bool {
+        layoutMode == .beginner
+            && beginnerRuntime.coursePhase == .round1Ascending
+            && beginnerRuntime.scaleStageIndex == 0
+            && currentRound == beginnerRoundOneStartingFret
+    }
+
     private var beginnerUsesFlats: Bool {
-        layoutMode == .beginner && beginnerRuntime.coursePhase == .round2Descending
+        guard layoutMode == .beginner else { return false }
+        return isDescendingPhase
     }
 
     private var backingTrackShouldPlayInGameplay: Bool {
@@ -2602,6 +2630,54 @@ struct ContentView: View {
                 }
             }
             .overlay {
+                HStack(spacing: 6) {
+                    Button("START") { handleRoundStartButton() }
+                        .frame(minWidth: 56, minHeight: 34, maxHeight: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                        )
+                    Button(isRoundPaused ? ">" : "||") { handleRoundPauseButton() }
+                        .frame(minWidth: 40, minHeight: 34, maxHeight: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                        )
+                    Button("RESET") { handleRoundResetButton() }
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                        )
+                }
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.black.opacity(0.92))
+                .buttonStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.94, green: 0.82, blue: 0.53),
+                                    Color(red: 0.78, green: 0.6, blue: 0.22),
+                                    Color(red: 0.94, green: 0.82, blue: 0.53)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .stroke(Color.black.opacity(0.26), lineWidth: 1.2)
+                        )
+                )
+                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.64, height: 50)
+                .position(x: (proxy.size.width / 2) - (min((proxy.size.width - 24) * 0.88, 370) * 0.29), y: transportCenterY - 22)
+                .opacity(codenameNemoEnabled ? 0 : 1)
+            }
+            .overlay {
                 TransportControlsView(
                     isPlaying: isBackingTrackPlaying,
                     onStop: {
@@ -2611,8 +2687,8 @@ struct ContentView: View {
                         handleTransportStartButton()
                     }
                 )
-                .frame(width: min((proxy.size.width - 24) * 0.88, 370), height: 50)
-                .position(x: proxy.size.width / 2, y: transportCenterY - 22)
+                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.45, height: 50)
+                .position(x: (proxy.size.width / 2) + (min((proxy.size.width - 24) * 0.88, 370) * 0.30), y: transportCenterY - 22)
                 .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay {
@@ -2715,7 +2791,14 @@ struct ContentView: View {
             .onChange(of: beginnerRuntime.scaleCycleSemitoneOffset) { _, _ in
                 applyBeginnerBassTransposeForCurrentStage()
             }
-            .onChange(of: layoutMode) { _, _ in
+            .onChange(of: layoutMode) { _, mode in
+                if mode == .beginner {
+                    beginnerRuntime.coursePhase = .round1Ascending
+                    isRoundArmed = true
+                    isRoundPaused = false
+                    roundRevealElapsedBeats = 0
+                    roundRevealLastTickDate = nil
+                }
                 syncBackingTrackPlayback()
             }
             .onChange(of: isCodeScreensaverMode) { _, isScreensaverMode in
@@ -2727,7 +2810,8 @@ struct ContentView: View {
                 }
             }
             .onChange(of: currentRound) { _, newValue in
-                // Transposition removed - using fixed keys sound
+                _ = newValue
+                applyBeginnerBassTransposeForCurrentStage()
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in
                 handleMainTimerTick(date)
@@ -2813,6 +2897,21 @@ struct ContentView: View {
             handleStartupSpeech(for: startupState.phase)
         }
 
+        if isRoundArmed || isRoundPaused {
+            beginnerRuntime.beatLightFlashOn = false
+            roundRevealLastTickDate = nil
+            return
+        }
+
+        if roundRevealLastTickDate == nil {
+            roundRevealLastTickDate = date
+        } else if let lastTick = roundRevealLastTickDate {
+            let delta = max(date.timeIntervalSince(lastTick), 0)
+            let beatsPerSecond = Double(max(beatBPM, 60)) / 60.0
+            roundRevealElapsedBeats += delta * beatsPerSecond
+            roundRevealLastTickDate = date
+        }
+
         handlePendingBeginnerRewardPlaybackIfNeeded()
         ensureBeginnerRoundOneRevealSequenceStarted(currentDate: date)
         updateBeginnerRoundOneRevealSequence(currentDate: date)
@@ -2858,6 +2957,7 @@ struct ContentView: View {
     }
 
     private func initializeGameplaySession() {
+        audioSettings = AudioSettings()
         availableBackingTracks = BackingTrack.discoverBundledTracks()
         audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
         guitarNoteEngine.configure(
@@ -2879,19 +2979,22 @@ struct ContentView: View {
         displayedBankDollars = bankDollars
         showDeveloperPrompt("MODE: \(selectedMode.rawValue.uppercased())")
         questionBoxIntroProgress = isCodeScreensaverMode ? 0 : 1
-        beginnerRuntime.answerBoxReady = !isCodeScreensaverMode
+        beginnerRuntime.answerBoxReady = layoutMode == .beginner ? false : !isCodeScreensaverMode
         beginnerRuntime.coursePhase = .round1Ascending
+        isRoundArmed = layoutMode == .beginner
+        isRoundPaused = false
+        roundRevealElapsedBeats = 0
+        roundRevealLastTickDate = nil
     }
 
     private func startGameFromBeginning() {
         if layoutMode == .beginner {
-            switch beginnerRuntime.coursePhase {
-            case .round1Ascending, .round1Celebration, .round2Arming, .round2Celebration:
-                currentRound = 0
-                isDescendingPhase = false
-            case .round2Descending:
-                currentRound = 12
-                isDescendingPhase = true
+            if beginnerRuntime.coursePhase == .round1Ascending {
+                currentRound = beginnerRoundOneStartingFret
+                isDescendingPhase = beginnerRoundOneStartsDescending
+            } else {
+                currentRound = beginnerRoundTwoStartingFret
+                isDescendingPhase = beginnerRoundTwoStartsDescending
             }
         } else {
             currentRound = isPhaseDescending ? 12 : 0
@@ -2911,6 +3014,9 @@ struct ContentView: View {
         rightThumbState = .neutral
         activeAnswerFeedback = nil
         isResolvingAnswer = false
+        isRoundPaused = false
+        roundRevealElapsedBeats = 0
+        roundRevealLastTickDate = nil
         gameplayMenuExpanded = false
         developerPromptText = ""
         currentCorrectNote = ""
@@ -2923,6 +3029,8 @@ struct ContentView: View {
         lastPromptedStringHalf = nil
         lastPromptedStringNumber = nil
         recentPromptedCorrectNotes = []
+        beginnerRuntime.lastPickedNote = nil
+        beginnerRuntime.rewardNoteTextByString = nil
         beginnerRuntime.answerBoxReady = layoutMode != .beginner
         beginnerRuntime.autoPlayNextDate = nil
         beginnerRuntime.celebrationFlashOn = false
@@ -2932,10 +3040,10 @@ struct ContentView: View {
         beginnerRuntime.roundOneIntroActive = false
         beginnerRuntime.roundOneSequenceStartDate = nil
         beginnerRuntime.beatLightIntroMeasureSkipped = false
-        beginnerRuntime.scaleRepetitionsRemaining = 1
+        beginnerRuntime.scaleRepetitionsRemaining = max(audioSettings.beginnerLessonRepeat.rawValue, 1)
         beginnerRuntime.scaleSequenceIndex = 0
         beginnerRuntime.scaleStageIndex = 0
-        beginnerRuntime.scaleCycleSemitoneOffset = 0
+        beginnerRuntime.scaleCycleSemitoneOffset = currentRound
         beginnerRuntime.revealStartBeatBucket = nil
         beginnerRuntime.pendingRewardStageAdvance = false
         beginnerRuntime.rewardTargetBeatPosition = nil
@@ -3065,7 +3173,7 @@ struct ContentView: View {
 
         beginnerRuntime.pendingRewardStageAdvance = true
         beginnerRuntime.rewardSelectedString = selectedString
-        beginnerRuntime.rewardTargetBeatPosition = midiEngine.currentBeatPosition() + policy.delayBeats
+        beginnerRuntime.rewardTargetBeatPosition = roundRevealElapsedBeats + policy.delayBeats
         beginnerRuntime.rewardScheduledStrings = rewardPayload.strings
         beginnerRuntime.rewardScheduledMIDINotes = rewardPayload.midiNotes
         beginnerRuntime.rewardScheduledNoteTextByString = rewardPayload.notesByString
@@ -3102,7 +3210,7 @@ struct ContentView: View {
               let targetBeatPosition = beginnerRuntime.rewardTargetBeatPosition,
               let selectedString = beginnerRuntime.rewardSelectedString else { return }
 
-        let currentBeatPosition = midiEngine.currentBeatPosition()
+        let currentBeatPosition = roundRevealElapsedBeats
         guard currentBeatPosition >= targetBeatPosition else { return }
 
         beginnerRuntime.rewardTargetBeatPosition = nil
@@ -3150,8 +3258,14 @@ struct ContentView: View {
         beginnerRuntime.rewardSustainMultiplier = 3.0
         beginnerRuntime.scaleRepetitionsRemaining = 1
         if completedStageWasCycleEnd {
-            if currentRound < 12 {
-                let nextFret = currentRound + 1
+            let nextFret: Int?
+            if isDescendingPhase {
+                nextFret = currentRound > 0 ? currentRound - 1 : nil
+            } else {
+                nextFret = currentRound < 12 ? currentRound + 1 : nil
+            }
+
+            if let nextFret {
                 beginnerRuntime.scaleCycleSemitoneOffset = nextFret
                 beginnerRuntime.scaleStageIndex = 0
                 currentRound = nextFret
@@ -3180,7 +3294,8 @@ struct ContentView: View {
         beginnerRuntime.pentatonicRevealCount = 0
         beginnerRuntime.roundOneIntroActive = true
         beginnerRuntime.roundOneSequenceStartDate = Date()
-        beginnerRuntime.revealStartBeatBucket = Int(floor(midiEngine.currentBeatPosition()))
+        roundRevealElapsedBeats = 0
+        roundRevealLastTickDate = nil
         beginnerRuntime.answerBoxReady = false
         beginnerRuntime.lastPickedNote = nil
         applyBeginnerBassTransposeForCurrentStage()
@@ -3190,17 +3305,33 @@ struct ContentView: View {
     }
 
     private func transposedSharpNote(_ note: String, by semitones: Int) -> String {
+        transposedNote(note, by: semitones, useFlats: false)
+    }
+
+    private func transposedNote(_ note: String, by semitones: Int, useFlats: Bool) -> String {
         guard let index = chromaticSharps.firstIndex(of: note) else { return note }
         let wrapped = (index + semitones % chromaticSharps.count + chromaticSharps.count) % chromaticSharps.count
-        return chromaticSharps[wrapped]
+        let scale = useFlats ? chromaticFlats : chromaticSharps
+        return scale[wrapped]
     }
 
     private func applyBeginnerBassTransposeForCurrentStage() {
-        guard layoutMode == .beginner, beginnerRuntime.coursePhase == .round1Ascending else {
+        guard layoutMode == .beginner else {
             midiEngine.setBassTransposeSemitones(0)
             return
         }
-        midiEngine.setBassTransposeSemitones(beginnerCurrentBassSemitoneTarget)
+
+        if beginnerRuntime.coursePhase == .round1Ascending {
+            midiEngine.setBassTransposeSemitones(beginnerCurrentBassSemitoneTarget)
+            return
+        }
+
+        if beginnerRuntime.coursePhase == .round2Descending {
+            midiEngine.setBassTransposeSemitones(max(currentRound, 0) % 12)
+            return
+        }
+
+        midiEngine.setBassTransposeSemitones(0)
     }
 
     private func ensureBeginnerRoundOneRevealSequenceStarted(currentDate: Date) {
@@ -3211,7 +3342,8 @@ struct ContentView: View {
               questionBoxIntroProgress > 0,
               beginnerRuntime.roundOneSequenceStartDate == nil,
               beginnerRuntime.pentatonicRevealCount == 0,
-              !beginnerRuntime.answerBoxReady
+              !beginnerRuntime.answerBoxReady,
+              !isRoundArmed
         else { return }
 
         beginnerRuntime.roundOneIntroActive = true
@@ -3270,7 +3402,7 @@ struct ContentView: View {
             return
         }
 
-        guard beginnerRoundStatusText != nil,
+        guard !beginnerRuntime.roundOneIntroActive,
               beginnerRuntime.pentatonicRevealCount >= beginnerCurrentScaleNotes.count,
               !beginnerCurrentScaleNotes.isEmpty
         else {
@@ -3330,6 +3462,13 @@ struct ContentView: View {
     }
 
     private func submitAnswer(_ side: AnswerSide, force: Bool = false) {
+        if layoutMode == .beginner && isRoundArmed {
+            handleRoundStartButton()
+            return
+        }
+        if layoutMode == .beginner && isRoundPaused {
+            return
+        }
         if isCodeScreensaverMode {
             if !startupSequenceActivated {
                 startupSequenceActivated = true
@@ -3370,6 +3509,10 @@ struct ContentView: View {
                     questionBoxIntroProgress = 1
                 }
             }
+            return
+        }
+
+        if isRoundPaused {
             return
         }
 
@@ -3424,6 +3567,34 @@ struct ContentView: View {
         highScoreDollars = max(highScoreDollars, bankDollars)
 
         if layoutMode == .beginner {
+            if beginnerRuntime.coursePhase == .round2Descending {
+                let requiredCorrectAnswers = max(audioSettings.beginnerLessonRepeat.rawValue, 1)
+                let completedAtCurrentFret = beginnerRuntime.correctAnswersAtCurrentFret
+
+                if completedAtCurrentFret >= requiredCorrectAnswers {
+                    beginnerRuntime.correctAnswersAtCurrentFret = 0
+                    beginnerRuntime.scaleRepetitionsRemaining = requiredCorrectAnswers
+
+                    if beginnerRoundTwoStartsDescending {
+                        if currentRound > 0 {
+                            currentRound -= 1
+                        } else {
+                            beginBeginnerRoundTwoCelebration()
+                            return
+                        }
+                    } else {
+                        if currentRound < 12 {
+                            currentRound += 1
+                        } else {
+                            beginBeginnerRoundTwoCelebration()
+                            return
+                        }
+                    }
+                } else {
+                    beginnerRuntime.scaleRepetitionsRemaining = max(requiredCorrectAnswers - completedAtCurrentFret, 1)
+                }
+            }
+
             prepareCurrentQuestion()
             return
         }
@@ -3584,6 +3755,11 @@ struct ContentView: View {
 
     private func handleBeginnerConsoleButtonPress(selectedNote: String, selectedString: Int) {
         guard layoutMode == .beginner else { return }
+        if isRoundArmed {
+            handleRoundStartButton()
+            return
+        }
+        guard !isRoundPaused else { return }
         if isCodeScreensaverMode {
             submitAnswer(.left)
             return
@@ -3703,6 +3879,71 @@ struct ContentView: View {
         showDeveloperPrompt(showFretboardGuide ? "Fretboard guide ON" : "Fretboard guide OFF")
     }
 
+    private func handleRoundStartButton() {
+        if isCodeScreensaverMode {
+            guard !isLaunchTransitionAnimating else { return }
+            isLaunchTransitionAnimating = true
+            launchTileScale = 1
+            launchTileOpacity = 1
+            withAnimation(.easeIn(duration: 0.4725)) {
+                launchTileScale = 0.1
+                launchTileOpacity = 0
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4725) {
+                isCodeScreensaverMode = false
+                startupSequenceActivated = false
+                startupSequenceElapsed = 0
+                startupSpeechPhase = .idle
+                currentFretStart = isPhaseDescending ? maxFretOffset : minFretOffset
+                isLaunchTransitionAnimating = false
+                launchTileScale = 1
+                launchTileOpacity = 1
+                questionBoxIntroProgress = 1
+                handleRoundStartButton()
+            }
+            return
+        }
+
+        if layoutMode == .beginner {
+            beginnerRuntime.coursePhase = .round1Ascending
+        }
+        isCodeScreensaverMode = false
+        startupSequenceActivated = false
+        startupSequenceElapsed = 0
+        startupSpeechPhase = .idle
+        questionBoxIntroProgress = 1
+        isRoundPaused = false
+        isRoundArmed = false
+        roundRevealElapsedBeats = 0
+        roundRevealLastTickDate = nil
+        startGameFromBeginning()
+        handleTransportStartButton()
+    }
+
+    private func handleRoundPauseButton() {
+        guard !isRoundArmed else { return }
+        isRoundPaused.toggle()
+        roundRevealLastTickDate = nil
+        beginnerRuntime.beatLightFlashOn = false
+        beginnerRuntime.beatLightLastProcessedBeat = nil
+        beginnerRuntime.beatLightIntroMeasureSkipped = false
+    }
+
+    private func handleRoundResetButton() {
+        if layoutMode == .beginner {
+            beginnerRuntime.coursePhase = .round1Ascending
+        }
+        isRoundPaused = false
+        isRoundArmed = true
+        roundRevealElapsedBeats = 0
+        roundRevealLastTickDate = nil
+        handleTransportStopButton()
+        startGameFromBeginning()
+        developerPromptText = ""
+        beginnerRuntime.answerBoxReady = false
+    }
+
     private func handleTransportStopButton() {
         midiEngine.stop()
         isBackingTrackPlaying = midiEngine.isPlaying
@@ -3818,13 +4059,14 @@ struct ContentView: View {
     private func beginBeginnerRoundTwo() {
         guard layoutMode == .beginner else { return }
         beginnerRuntime.coursePhase = .round2Descending
-        isDescendingPhase = true
-        currentRound = 12
+        isDescendingPhase = beginnerRoundTwoStartsDescending
+        currentRound = beginnerRoundTwoStartingFret
         roundStringIndex = 0
         streakMeterLitColumns = 0
         streakMeterFailureActive = false
         streakMeterFailureVisibleColumns = 0
         beginnerRuntime.correctAnswersAtCurrentFret = 0
+        beginnerRuntime.scaleRepetitionsRemaining = max(audioSettings.beginnerLessonRepeat.rawValue, 1)
         lastPromptedCorrectNote = nil
         lastPromptedStringHalf = nil
         lastPromptedStringNumber = nil

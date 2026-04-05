@@ -9,6 +9,27 @@ enum GuitarTonePreset: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum BeginnerLessonRepeat: Int, CaseIterable, Identifiable {
+    case x5 = 5
+    case x4 = 4
+    case x3 = 3
+    case x2 = 2
+    case x1 = 1
+
+    var id: Int { rawValue }
+
+    var title: String {
+        "\(rawValue)x"
+    }
+}
+
+enum BeginnerStartDirection: String, CaseIterable, Identifiable {
+    case ascendingSharps = "Ascending (Sharps)"
+    case descendingFlats = "Descending (Flats)"
+
+    var id: String { rawValue }
+}
+
 enum AudioEffectLevel: String, CaseIterable, Identifiable {
     case off = "Off"
     case low = "Low"
@@ -50,6 +71,9 @@ final class AudioSettings {
     var selectedBackingArrangement: BackingArrangementPreset = .epDrumsPad
     var selectedBackingTrackID: String? = nil
     var tempoIncreasePerRound: TempoIncreasePerRound = .off
+    var beginnerLessonRepeat: BeginnerLessonRepeat = .x1
+    var beginnerStartingFret: Int = 0
+    var beginnerStartDirection: BeginnerStartDirection = .ascendingSharps
 
     func selectInitialBackingTrackIfNeeded(from tracks: [BackingTrack]) {
         if let selectedBackingTrackID,

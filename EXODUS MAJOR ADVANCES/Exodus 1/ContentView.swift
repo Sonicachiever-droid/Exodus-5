@@ -2,6 +2,36 @@ import SwiftUI
 import Combine
 import AVFoundation
 
+enum GameplayMenuOption: String, CaseIterable, Identifiable {
+    case home
+    case learn
+    case phases
+    case account
+    case audio
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .home: return "HOME"
+        case .learn: return "LEARN"
+        case .phases: return "PHASES"
+        case .account: return "ACCOUNT"
+        case .audio: return "AUDIO"
+        }
+    }
+}
+
+enum RefretMode: String, CaseIterable, Identifiable {
+    case freestyle
+    case beat
+    case chord
+    case mixed
+    case oneHand
+    case twoHand
+
+    var id: String { rawValue }
+}
+
 private struct GoldHorizontalPipingLine: View {
     let width: CGFloat
 
@@ -1356,7 +1386,7 @@ struct ContentView: View {
             default:
                 return .freestyle
             }
-        case .freestyle, .oneHand:
+        case .freestyle, .oneHand, .twoHand:
             return .freestyle
         }
     }
@@ -1403,7 +1433,7 @@ struct ContentView: View {
             return 1.4
         case .mixed:
             return 1.6
-        case .oneHand:
+        case .oneHand, .twoHand:
             return 1.15
         }
     }

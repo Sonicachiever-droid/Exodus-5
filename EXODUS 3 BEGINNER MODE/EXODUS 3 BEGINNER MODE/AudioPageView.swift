@@ -28,6 +28,28 @@ struct AudioPageView: View {
                         }
                     }
                 }
+
+                Section("Beginner Round 2") {
+                    Picker("Lesson Repeat", selection: $audioSettings.beginnerLessonRepeat) {
+                        ForEach(BeginnerLessonRepeat.allCases) { option in
+                            Text(option.title).tag(option)
+                        }
+                    }
+
+                    HStack {
+                        Picker("Starting Fret", selection: $audioSettings.beginnerStartingFret) {
+                            ForEach(0...12, id: \.self) { fret in
+                                Text("\(fret)").tag(fret)
+                            }
+                        }
+
+                        Picker("Direction", selection: $audioSettings.beginnerStartDirection) {
+                            ForEach(BeginnerStartDirection.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                    }
+                }
             }
             .navigationTitle("Audio")
             .navigationBarTitleDisplayMode(.inline)
