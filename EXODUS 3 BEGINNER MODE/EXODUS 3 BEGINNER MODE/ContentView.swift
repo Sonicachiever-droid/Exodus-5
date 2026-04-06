@@ -3082,50 +3082,21 @@ struct ContentView: View {
         let fallbackSequence = allStringsDescending.filter { !preferredSequence.contains($0) }
         let candidateSequence = preferredSequence + fallbackSequence
         let rewardDisplayFret = max(currentRound, 0)
-        let stageTitle = beginnerCurrentScaleStage.title
-        let stageRootRange = stageTitle.range(of: #"^[A-G](?:#|b)?"#, options: .regularExpression)
-        let stageRoot = stageRootRange.map { String(stageTitle[$0]) } ?? ""
         var unusedStrings = candidateSequence
         var assignments: [(Int, String)] = []
+        let strictStringPriority = [1, 6, 5, 4, 3, 2]
 
         for chordNote in chordNotes {
-            let noteSpecificOrder: [Int] = {
-                if chordNote == "E" {
-                    return [1]
-                }
+            let matchingStrings = unusedStrings.filter {
+                noteName(forString: $0, fret: rewardDisplayFret, useFlats: false) == chordNote
+                    || noteName(forString: $0, fret: rewardDisplayFret, useFlats: beginnerUsesFlats) == chordNote
+            }
 
-                if !stageRoot.isEmpty, chordNote == stageRoot {
-                    let matchesOnSixth = noteName(forString: 6, fret: rewardDisplayFret, useFlats: false) == chordNote
-                        || noteName(forString: 6, fret: rewardDisplayFret, useFlats: beginnerUsesFlats) == chordNote
-                    let matchesOnFirst = noteName(forString: 1, fret: rewardDisplayFret, useFlats: false) == chordNote
-                        || noteName(forString: 1, fret: rewardDisplayFret, useFlats: beginnerUsesFlats) == chordNote
-                    if matchesOnSixth || matchesOnFirst {
-                        return [1, 6, 5, 4, 3, 2]
-                    }
-                    return [1, 6, 5, 4, 3, 2]
-                }
-
-                return unusedStrings
-            }()
-
-            guard let matchedString = noteSpecificOrder.first(where: {
-                unusedStrings.contains($0)
-                    && noteName(forString: $0, fret: rewardDisplayFret, useFlats: false) == chordNote
-            }) ?? noteSpecificOrder.first(where: {
-                unusedStrings.contains($0)
-                    && noteName(forString: $0, fret: rewardDisplayFret, useFlats: beginnerUsesFlats) == chordNote
-            }) ?? noteSpecificOrder.first(where: { unusedStrings.contains($0) }) else {
+            guard let matchedString = strictStringPriority.first(where: { matchingStrings.contains($0) }) else {
                 continue
             }
             assignments.append((matchedString, chordNote))
             unusedStrings.removeAll { $0 == matchedString }
-        }
-
-        if assignments.count < chordNotes.count {
-            let remainingNotes = chordNotes.dropFirst(assignments.count)
-            for (noteName, stringNumber) in zip(remainingNotes, unusedStrings) {
-                assignments.append((stringNumber, noteName))
-            }
         }
 
         return assignments
@@ -3141,10 +3112,13 @@ struct ContentView: View {
         var notesByString: [Int: String] = [:]
         var midiNotes: [Int] = []
 
-        for (stringNumber, noteName) in rewardPairs {
-            guard let midiNote = beginnerRewardMIDINote(for: noteName, stringNumber: stringNumber) else { continue }
+        let rewardDisplayFret = max(currentRound, 0)
+
+        for (stringNumber, _) in rewardPairs {
+            let displayedNote = noteName(forString: stringNumber, fret: rewardDisplayFret, useFlats: beginnerUsesFlats)
+            guard let midiNote = beginnerRewardMIDINote(for: displayedNote, stringNumber: stringNumber) else { continue }
             strings.append(stringNumber)
-            notesByString[stringNumber] = noteName
+            notesByString[stringNumber] = displayedNote
             midiNotes.append(midiNote)
         }
 
