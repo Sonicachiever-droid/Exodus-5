@@ -19,6 +19,7 @@ final class SimpleMIDIEngine: ObservableObject {
     private var loopTimer: Timer?
     private let loopLengthInBeats: TimeInterval = 16
     private var bassTransposeSemitones: Int = 0
+    private var pausedPositionInBeats: TimeInterval?
     
     init() {
         self.sequencer = AVAudioSequencer(audioEngine: engine)
@@ -99,6 +100,7 @@ final class SimpleMIDIEngine: ObservableObject {
         currentTrackTitle = title.isEmpty ? url.lastPathComponent : title
         isLooping = loop
         isStopped = false
+        pausedPositionInBeats = nil
         
         do {
             // Load MIDI file
@@ -222,12 +224,43 @@ final class SimpleMIDIEngine: ObservableObject {
     }
     
     private var isStopped: Bool = false
+
+    func pause() {
+        guard sequencer.isPlaying else { return }
+        pausedPositionInBeats = max(sequencer.currentPositionInBeats, 0)
+        sequencer.stop()
+
+        DispatchQueue.main.async {
+            self.isPlaying = false
+        }
+        print("[SimpleMIDIEngine] Paused at beat \(pausedPositionInBeats ?? 0)")
+    }
+
+    func resume() {
+        guard !sequencer.isPlaying else { return }
+        guard currentURL != nil else { return }
+
+        do {
+            if let pausedPositionInBeats {
+                sequencer.currentPositionInBeats = max(pausedPositionInBeats, 0)
+            }
+            try sequencer.start()
+
+            DispatchQueue.main.async {
+                self.isPlaying = true
+            }
+            print("[SimpleMIDIEngine] Resumed at beat \(sequencer.currentPositionInBeats)")
+        } catch {
+            print("[SimpleMIDIEngine] Failed to resume: \(error)")
+        }
+    }
     
     func stop() {
         isStopped = true
         sequencer.stop()
         sequencer.currentPositionInBeats = 0
-        
+        pausedPositionInBeats = nil
+
         DispatchQueue.main.async {
             self.isPlaying = false
         }

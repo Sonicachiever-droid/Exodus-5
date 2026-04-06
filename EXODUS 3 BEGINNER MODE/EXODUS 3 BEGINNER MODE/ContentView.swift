@@ -1661,6 +1661,7 @@ struct ContentView: View {
     @State private var showFretboardGuide: Bool = false
     @State private var isRoundArmed: Bool = true
     @State private var isRoundPaused: Bool = false
+    @State private var transportStoppedForResume: Bool = false
     @State private var roundRevealElapsedBeats: Double = 0
     @State private var roundRevealLastTickDate: Date? = nil
     @State private var isBackingTrackPlaying: Bool = false
@@ -2620,7 +2621,7 @@ struct ContentView: View {
             .overlay {
                 HStack(spacing: 6) {
                     Button("START") { handleStartButtonPress() }
-                        .frame(minWidth: 56, minHeight: 34, maxHeight: 34)
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill((startupStartButtonAttentionActive && startupStartButtonBlinkOn)
@@ -2631,8 +2632,8 @@ struct ContentView: View {
                                         .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
                                 )
                         )
-                    Button(isRoundPaused ? ">" : "||") { handleRoundPauseButton() }
-                        .frame(minWidth: 40, minHeight: 34, maxHeight: 34)
+                    Button("STOP") { handleRoundStopButton() }
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
                         .disabled(startupStartButtonAttentionActive)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -2669,7 +2670,7 @@ struct ContentView: View {
                                 .stroke(Color.black.opacity(0.26), lineWidth: 1.2)
                         )
                 )
-                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.64, height: 50)
+                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.72, height: 50)
                 .position(x: proxy.size.width / 2, y: transportCenterY - 22)
                 .opacity(codenameNemoEnabled ? 0 : 1)
             }
@@ -3360,10 +3361,10 @@ struct ContentView: View {
         let revealedCount: Int = {
             if beginnerRuntime.showRoundZeroIntroSequence {
                 guard elapsedBeatBuckets >= 12 else { return 0 }
-                return ((elapsedBeatBuckets - 12) / 2) + 1
+                return (elapsedBeatBuckets - 12) + 1
             }
             guard elapsedBeatBuckets >= 4 else { return 0 }
-            return ((elapsedBeatBuckets - 4) / 2) + 1
+            return (elapsedBeatBuckets - 4) + 1
         }()
         let clampedRevealCount = min(max(revealedCount, 0), beginnerCurrentScaleNotes.count)
 
@@ -3845,6 +3846,11 @@ struct ContentView: View {
             return
         }
 
+        guard !transportStoppedForResume else {
+            isBackingTrackPlaying = false
+            return
+        }
+
         guard let selectedTrackID = audioSettings.selectedBackingTrackID,
               let selectedTrack = availableBackingTracks.first(where: { $0.id == selectedTrackID }),
               let trackURL = selectedTrack.resourceURL() else {
@@ -3899,6 +3905,7 @@ struct ContentView: View {
         startupSpeechPhase = .idle
         questionBoxIntroProgress = 1
         isRoundPaused = false
+        transportStoppedForResume = false
         isRoundArmed = false
         roundRevealElapsedBeats = 0
         roundRevealLastTickDate = nil
@@ -3921,13 +3928,42 @@ struct ContentView: View {
             return
         }
 
+        if transportStoppedForResume {
+            resumeRoundFromTransportStop()
+            return
+        }
+
+        if !isRoundArmed {
+            return
+        }
+
         handleRoundStartButton()
     }
 
-    private func handleRoundPauseButton() {
-        guard !isRoundArmed else { return }
-        isRoundPaused.toggle()
+    private func handleRoundStopButton() {
+        guard !isRoundArmed,
+              !isCodeScreensaverMode,
+              !isRoundPaused
+        else { return }
+
+        isRoundPaused = true
+        transportStoppedForResume = true
         roundRevealLastTickDate = nil
+        midiEngine.pause()
+        isBackingTrackPlaying = midiEngine.isPlaying
+        beginnerRuntime.beatLightFlashOn = false
+        beginnerRuntime.beatLightLastProcessedBeat = nil
+        beginnerRuntime.beatLightIntroMeasureSkipped = false
+    }
+
+    private func resumeRoundFromTransportStop() {
+        guard transportStoppedForResume else { return }
+
+        transportStoppedForResume = false
+        isRoundPaused = false
+        roundRevealLastTickDate = nil
+        midiEngine.resume()
+        isBackingTrackPlaying = midiEngine.isPlaying
         beginnerRuntime.beatLightFlashOn = false
         beginnerRuntime.beatLightLastProcessedBeat = nil
         beginnerRuntime.beatLightIntroMeasureSkipped = false
@@ -3947,6 +3983,7 @@ struct ContentView: View {
         launchTileScale = 1
         launchTileOpacity = 1
         isRoundPaused = false
+        transportStoppedForResume = false
         isRoundArmed = true
         roundRevealElapsedBeats = 0
         roundRevealLastTickDate = nil
