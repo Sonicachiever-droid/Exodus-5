@@ -57,6 +57,14 @@ private enum BeginnerCoursePhase {
     case round2Celebration
 }
 
+private enum BeginnerRoundZeroIntroDisplayPhase {
+    case inactive
+    case centeredRoundZeroChordMode
+    case roundZeroHeader
+    case roundZeroScaleTitle
+    case noteReveal
+}
+
 private struct HighlightWindowShape: InsettableShape {
     var cornerRadius: CGFloat
     var insetAmount: CGFloat = 0
@@ -482,6 +490,7 @@ private final class GameplayAudioEngine {
 
 private struct GameplayControlPlateShell: View {
     let isMenuExpanded: Bool
+    let isStartupInputLockActive: Bool
     let onHint: () -> Void
     let onFretboard: () -> Void
     let onToggleMenu: () -> Void
@@ -511,7 +520,9 @@ private struct GameplayControlPlateShell: View {
 
                 HStack(spacing: 8) {
                     plateButton(title: "HINT", action: onHint)
+                        .disabled(isStartupInputLockActive)
                     plateButton(title: "FRETBOARD", action: onFretboard)
+                        .disabled(isStartupInputLockActive)
                     plateButton(title: isMenuExpanded ? "CLOSE" : "MENU", action: onToggleMenu)
                 }
             }
@@ -522,6 +533,7 @@ private struct GameplayControlPlateShell: View {
                         plateButton(title: option.title) {
                             onSelectMenuOption(option)
                         }
+                        .disabled(isStartupInputLockActive)
                     }
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -591,94 +603,6 @@ private struct GameplayControlPlateShell: View {
                 )
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct TransportControlsView: View {
-    let isPlaying: Bool
-    let onStop: () -> Void
-    let onStart: () -> Void
-
-    private struct PressableTransportButtonStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .scaleEffect(configuration.isPressed ? 0.92 : 1)
-                .brightness(configuration.isPressed ? -0.08 : 0)
-                .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            transportButton(systemName: "stop.fill", action: onStop)
-            transportButton(systemName: "play.fill", action: onStart)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.94, green: 0.82, blue: 0.53),
-                            Color(red: 0.78, green: 0.6, blue: 0.22),
-                            Color(red: 0.94, green: 0.82, blue: 0.53)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.black.opacity(0.26), lineWidth: 1.2)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.5), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: .black.opacity(0.45), radius: 10, x: 0, y: 6)
-        )
-    }
-    
-    private func transportButton(systemName: String, action: @escaping () -> Void) -> some View {
-        let isPlayButton = systemName == "play.fill"
-        let iconColor: Color = isPlayButton && isPlaying
-            ? Color(red: 0.04, green: 0.45, blue: 0.10)
-            : Color.black.opacity(0.92)
-
-        return Button(action: action) {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.90, green: 0.76, blue: 0.44),
-                            Color(red: 0.72, green: 0.54, blue: 0.26),
-                            Color(red: 0.87, green: 0.72, blue: 0.40)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(minWidth: 60, minHeight: 34, maxHeight: 34)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
-                )
-                .overlay(
-                    Image(systemName: systemName)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(iconColor)
-                )
-        }
-        .buttonStyle(PressableTransportButtonStyle())
-        .animation(.easeInOut(duration: 0.16), value: isPlaying)
     }
 }
 
@@ -1740,12 +1664,12 @@ struct ContentView: View {
     @State private var roundRevealElapsedBeats: Double = 0
     @State private var roundRevealLastTickDate: Date? = nil
     @State private var isBackingTrackPlaying: Bool = false
-    @State private var manualTransportPlaybackActive: Bool = false
-    @State private var transportStatusDetail: String = "IDLE"
-    @State private var playbackPathUsed: String = "NONE"
     @State private var isLaunchTransitionAnimating: Bool = false
     @State private var launchTileScale: CGFloat = 1
     @State private var launchTileOpacity: Double = 1
+    @State private var startupNeckVisualsHidden: Bool = false
+    @State private var startupStartButtonBlinkOn: Bool = false
+    @State private var startupStartButtonNextBlinkDate: Date? = nil
     @State private var beatPulseActive: Bool = false
     @State private var beatCountInRemaining: Int = 0
     @State private var nextBeatTickDate: Date? = nil
@@ -1792,6 +1716,7 @@ struct ContentView: View {
         var beatLightLastProcessedBeat: Int? = nil
         var beatLightIntroMeasureSkipped: Bool = false
         var revealStartBeatBucket: Int? = nil
+        var showRoundZeroIntroSequence: Bool = false
         var roundOneIntroActive: Bool = false
         var roundOneSequenceStartDate: Date? = nil
         var lastPickedNote: String? = nil
@@ -1927,6 +1852,16 @@ struct ContentView: View {
         guard layoutMode == .beginner else { return nil }
         switch beginnerRuntime.coursePhase {
         case .round1Ascending:
+            switch beginnerRoundZeroIntroDisplayPhase {
+            case .centeredRoundZeroChordMode:
+                return nil
+            case .roundZeroHeader:
+                return "BEGINNER ROUND 0"
+            case .roundZeroScaleTitle:
+                return "BEGINNER ROUND 0\nEm Pentatonic"
+            case .noteReveal, .inactive:
+                break
+            }
             let progressLine = beginnerPentatonicProgressText
             let roundOneSubtitle = beginnerCurrentScaleTitle
             if progressLine.isEmpty {
@@ -1942,6 +1877,9 @@ struct ContentView: View {
 
     private var beginnerCenteredStatusMessage: String? {
         guard layoutMode == .beginner else { return nil }
+        if beginnerRoundZeroIntroDisplayPhase == .centeredRoundZeroChordMode {
+            return "BEGINNER ROUND 0\nCHORD MODE"
+        }
         if beginnerRuntime.coursePhase == .round2Arming {
             return "BEGINNER ROUND 2\nARMED"
         }
@@ -1949,7 +1887,35 @@ struct ContentView: View {
     }
 
     private var beginnerCenteredStatusColor: Color {
-        beginnerRuntime.celebrationFlashOn ? Color.green.opacity(0.98) : Color.green.opacity(0.28)
+        if beginnerRoundZeroIntroDisplayPhase == .centeredRoundZeroChordMode {
+            return Color.green.opacity(0.96)
+        }
+        return beginnerRuntime.celebrationFlashOn ? Color.green.opacity(0.98) : Color.green.opacity(0.28)
+    }
+
+    private var beginnerRoundZeroIntroDisplayPhase: BeginnerRoundZeroIntroDisplayPhase {
+        guard layoutMode == .beginner,
+              beginnerRuntime.coursePhase == .round1Ascending,
+              beginnerRuntime.roundOneIntroActive,
+              beginnerRuntime.showRoundZeroIntroSequence
+        else {
+            return .inactive
+        }
+
+        let currentBeatBucket = Int(floor(roundRevealElapsedBeats))
+        let startBeatBucket = beginnerRuntime.revealStartBeatBucket ?? currentBeatBucket
+        let elapsedBeatBuckets = max(currentBeatBucket - startBeatBucket, 0)
+
+        if elapsedBeatBuckets < 6 {
+            return .centeredRoundZeroChordMode
+        }
+        if elapsedBeatBuckets < 8 {
+            return .roundZeroHeader
+        }
+        if elapsedBeatBuckets < 12 {
+            return .roundZeroScaleTitle
+        }
+        return .noteReveal
     }
 
     private var beginnerCelebrationActive: Bool {
@@ -1997,6 +1963,23 @@ struct ContentView: View {
         guard layoutMode == .beginner else { return false }
         guard !isCodeScreensaverMode else { return false }
         return beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending
+    }
+
+    private var startupStartButtonAttentionActive: Bool {
+        guard layoutMode == .beginner else { return false }
+        guard isCodeScreensaverMode else { return false }
+        guard !isLaunchTransitionAnimating else { return false }
+
+        if !startupSequenceActivated {
+            return true
+        }
+
+        let startupState = StartupSequenceView.state(
+            for: startupSequenceElapsed,
+            showFullSequence: layoutMode != .beginner,
+            armedText: beginnerStartupArmedText
+        )
+        return startupState.phase == .armed
     }
 
     private var backingTrackShouldBeActive: Bool {
@@ -2237,12 +2220,14 @@ struct ContentView: View {
                     Spacer()
                 }
                 .padding(.horizontal, padding)
+                .opacity(startupNeckVisualsHidden ? 0 : 1)
 
                 StringLineOverlay(
                     neckWidth: neckWidth,
                     horizontalPadding: padding,
                     stringTopY: stringTopY
                 )
+                .opacity(startupNeckVisualsHidden ? 0 : 1)
 
                 RoundedRectangle(cornerRadius: highlightCornerRadius, style: .continuous)
                     .fill(Color.black)
@@ -2463,6 +2448,7 @@ struct ContentView: View {
             .overlay(alignment: .bottom) {
                 GameplayControlPlateShell(
                     isMenuExpanded: gameplayMenuExpanded,
+                    isStartupInputLockActive: startupStartButtonAttentionActive,
                     onHint: {
                         handleHintButtonPress()
                     },
@@ -2573,6 +2559,7 @@ struct ContentView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .disabled(startupStartButtonAttentionActive)
                             .position(x: leftButtonX, y: rowYs[idx])
                         }
 
@@ -2597,6 +2584,7 @@ struct ContentView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .disabled(startupStartButtonAttentionActive)
                             .position(x: rightButtonX, y: rowYs[idx])
                         }
 
@@ -2631,20 +2619,28 @@ struct ContentView: View {
             }
             .overlay {
                 HStack(spacing: 6) {
-                    Button("START") { handleRoundStartButton() }
+                    Button("START") { handleStartButtonPress() }
                         .frame(minWidth: 56, minHeight: 34, maxHeight: 34)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                                .fill((startupStartButtonAttentionActive && startupStartButtonBlinkOn)
+                                    ? Color.green.opacity(0.9)
+                                    : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                                )
                         )
                     Button(isRoundPaused ? ">" : "||") { handleRoundPauseButton() }
                         .frame(minWidth: 40, minHeight: 34, maxHeight: 34)
+                        .disabled(startupStartButtonAttentionActive)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
                         )
                     Button("RESET") { handleRoundResetButton() }
                         .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
+                        .disabled(startupStartButtonAttentionActive)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
@@ -2674,22 +2670,11 @@ struct ContentView: View {
                         )
                 )
                 .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.64, height: 50)
-                .position(x: (proxy.size.width / 2) - (min((proxy.size.width - 24) * 0.88, 370) * 0.29), y: transportCenterY - 22)
+                .position(x: proxy.size.width / 2, y: transportCenterY - 22)
                 .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay {
-                TransportControlsView(
-                    isPlaying: isBackingTrackPlaying,
-                    onStop: {
-                        handleTransportStopButton()
-                    },
-                    onStart: {
-                        handleTransportStartButton()
-                    }
-                )
-                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.45, height: 50)
-                .position(x: (proxy.size.width / 2) + (min((proxy.size.width - 24) * 0.88, 370) * 0.30), y: transportCenterY - 22)
-                .opacity(codenameNemoEnabled ? 0 : 1)
+                EmptyView()
             }
             .overlay {
                 if layoutMode == nil {
@@ -2891,6 +2876,21 @@ struct ContentView: View {
     }
 
     private func handleMainTimerTick(_ date: Date) {
+        let shouldBlinkStartupStartButton = startupStartButtonAttentionActive
+
+        if shouldBlinkStartupStartButton {
+            if startupStartButtonNextBlinkDate == nil {
+                startupStartButtonBlinkOn = true
+                startupStartButtonNextBlinkDate = date.addingTimeInterval(0.45)
+            } else if let nextBlinkDate = startupStartButtonNextBlinkDate, date >= nextBlinkDate {
+                startupStartButtonBlinkOn.toggle()
+                startupStartButtonNextBlinkDate = date.addingTimeInterval(0.45)
+            }
+        } else {
+            startupStartButtonBlinkOn = false
+            startupStartButtonNextBlinkDate = nil
+        }
+
         if startupSequenceActivated {
             startupSequenceElapsed = max(date.timeIntervalSince(startupSequenceStartDate), 0)
             let startupState = StartupSequenceView.state(for: startupSequenceElapsed, showFullSequence: layoutMode != .beginner, armedText: beginnerStartupArmedText)
@@ -2987,7 +2987,7 @@ struct ContentView: View {
         roundRevealLastTickDate = nil
     }
 
-    private func startGameFromBeginning() {
+    private func startGameFromBeginning(animateNeckSlideFromStartup: Bool = false) {
         if layoutMode == .beginner {
             if beginnerRuntime.coursePhase == .round1Ascending {
                 currentRound = beginnerRoundOneStartingFret
@@ -3000,7 +3000,19 @@ struct ContentView: View {
             currentRound = isPhaseDescending ? 12 : 0
             isDescendingPhase = isPhaseDescending
         }
-        currentFretStart = currentRound
+        if animateNeckSlideFromStartup {
+            startupNeckVisualsHidden = true
+            currentFretStart = isDescendingPhase ? maxFretOffset : minFretOffset
+            DispatchQueue.main.async {
+                startupNeckVisualsHidden = false
+                withAnimation(.easeInOut(duration: 0.78)) {
+                    currentFretStart = currentRound
+                }
+            }
+        } else {
+            startupNeckVisualsHidden = false
+            currentFretStart = currentRound
+        }
         roundStringIndex = 0
         bankDollars = 0
         displayedBankDollars = 0
@@ -3045,6 +3057,7 @@ struct ContentView: View {
         beginnerRuntime.scaleStageIndex = 0
         beginnerRuntime.scaleCycleSemitoneOffset = currentRound
         beginnerRuntime.revealStartBeatBucket = nil
+        beginnerRuntime.showRoundZeroIntroSequence = false
         beginnerRuntime.pendingRewardStageAdvance = false
         beginnerRuntime.rewardTargetBeatPosition = nil
         beginnerRuntime.rewardSelectedString = nil
@@ -3323,7 +3336,8 @@ struct ContentView: View {
         beginnerRuntime.roundOneIntroActive = true
         beginnerRuntime.roundOneSequenceStartDate = currentDate
         beginnerRuntime.pentatonicRevealCount = 0
-        beginnerRuntime.revealStartBeatBucket = Int(floor(midiEngine.currentBeatPosition()))
+        beginnerRuntime.revealStartBeatBucket = Int(floor(roundRevealElapsedBeats))
+        beginnerRuntime.showRoundZeroIntroSequence = true
         beginnerRuntime.lastPickedNote = nil
         beginnerRuntime.answerBoxReady = false
     }
@@ -3337,13 +3351,17 @@ struct ContentView: View {
               !startupSequenceActivated
         else { return }
 
-        let currentBeatBucket = Int(floor(midiEngine.currentBeatPosition()))
+        let currentBeatBucket = Int(floor(roundRevealElapsedBeats))
         if beginnerRuntime.revealStartBeatBucket == nil {
             beginnerRuntime.revealStartBeatBucket = currentBeatBucket
         }
         let revealStartBeatBucket = beginnerRuntime.revealStartBeatBucket ?? currentBeatBucket
         let elapsedBeatBuckets = max(currentBeatBucket - revealStartBeatBucket, 0)
         let revealedCount: Int = {
+            if beginnerRuntime.showRoundZeroIntroSequence {
+                guard elapsedBeatBuckets >= 12 else { return 0 }
+                return ((elapsedBeatBuckets - 12) / 2) + 1
+            }
             guard elapsedBeatBuckets >= 4 else { return 0 }
             return ((elapsedBeatBuckets - 4) / 2) + 1
         }()
@@ -3357,6 +3375,7 @@ struct ContentView: View {
             beginnerRuntime.roundOneIntroActive = false
             beginnerRuntime.roundOneSequenceStartDate = nil
             beginnerRuntime.revealStartBeatBucket = nil
+            beginnerRuntime.showRoundZeroIntroSequence = false
             beginnerRuntime.answerBoxReady = true
         }
     }
@@ -3462,6 +3481,7 @@ struct ContentView: View {
             guard !isLaunchTransitionAnimating else { return }
 
             isLaunchTransitionAnimating = true
+            startupNeckVisualsHidden = true
             launchTileScale = 1
             launchTileOpacity = 1
             withAnimation(.easeIn(duration: 0.4725)) {
@@ -3474,8 +3494,7 @@ struct ContentView: View {
                 startupSequenceActivated = false
                 startupSequenceElapsed = 0
                 startupSpeechPhase = .idle
-                currentFretStart = isPhaseDescending ? maxFretOffset : minFretOffset
-                startGameFromBeginning()
+                startGameFromBeginning(animateNeckSlideFromStartup: true)
                 isLaunchTransitionAnimating = false
                 launchTileScale = 1
                 launchTileOpacity = 1
@@ -3816,17 +3835,13 @@ struct ContentView: View {
         guard !availableBackingTracks.isEmpty else {
             midiEngine.stop()
             isBackingTrackPlaying = false
-            transportStatusDetail = "NO_TRACKS_DISCOVERED"
-            playbackPathUsed = "NONE"
             return
         }
 
         audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
-        guard backingTrackShouldBeActive || manualTransportPlaybackActive else {
+        guard backingTrackShouldBeActive else {
             midiEngine.stop()
             isBackingTrackPlaying = false
-            transportStatusDetail = "GATED_BY_MODE_OR_PHASE"
-            playbackPathUsed = "NONE"
             return
         }
 
@@ -3835,16 +3850,12 @@ struct ContentView: View {
               let trackURL = selectedTrack.resourceURL() else {
             midiEngine.stop()
             isBackingTrackPlaying = false
-            transportStatusDetail = "INVALID_TRACK_SELECTION"
-            playbackPathUsed = "NONE"
             return
         }
 
         applyBeginnerBassTransposeForCurrentStage()
         midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
         isBackingTrackPlaying = midiEngine.isPlaying
-        transportStatusDetail = midiEngine.isPlaying ? "AUTO_PLAY_OK" : "AUTO_PLAY_FAILED"
-        playbackPathUsed = midiEngine.isPlaying ? "SEQUENCER" : "NONE"
     }
 
     private func handleFretboardButtonPress() {
@@ -3853,10 +3864,11 @@ struct ContentView: View {
         showDeveloperPrompt(showFretboardGuide ? "Fretboard guide ON" : "Fretboard guide OFF")
     }
 
-    private func handleRoundStartButton() {
+    private func handleRoundStartButton(animateNeckSlideFromStartup: Bool = false) {
         if isCodeScreensaverMode {
             guard !isLaunchTransitionAnimating else { return }
             isLaunchTransitionAnimating = true
+            startupNeckVisualsHidden = true
             launchTileScale = 1
             launchTileOpacity = 1
             withAnimation(.easeIn(duration: 0.4725)) {
@@ -3869,12 +3881,11 @@ struct ContentView: View {
                 startupSequenceActivated = false
                 startupSequenceElapsed = 0
                 startupSpeechPhase = .idle
-                currentFretStart = isPhaseDescending ? maxFretOffset : minFretOffset
                 isLaunchTransitionAnimating = false
                 launchTileScale = 1
                 launchTileOpacity = 1
                 questionBoxIntroProgress = 1
-                handleRoundStartButton()
+                handleRoundStartButton(animateNeckSlideFromStartup: true)
             }
             return
         }
@@ -3891,8 +3902,26 @@ struct ContentView: View {
         isRoundArmed = false
         roundRevealElapsedBeats = 0
         roundRevealLastTickDate = nil
-        startGameFromBeginning()
-        handleTransportStartButton()
+        startGameFromBeginning(animateNeckSlideFromStartup: animateNeckSlideFromStartup)
+        if !animateNeckSlideFromStartup {
+            syncBackingTrackPlayback()
+        }
+    }
+
+    private func handleStartButtonPress() {
+        if startupStartButtonAttentionActive,
+           layoutMode == .beginner,
+           isCodeScreensaverMode,
+           !startupSequenceActivated {
+            startupSequenceActivated = true
+            startupSequenceStartDate = .now
+            startupSequenceElapsed = 0
+            startupSpeechPhase = .pendingArmed
+            questionBoxIntroProgress = 0
+            return
+        }
+
+        handleRoundStartButton()
     }
 
     private func handleRoundPauseButton() {
@@ -3908,71 +3937,23 @@ struct ContentView: View {
         if layoutMode == .beginner {
             beginnerRuntime.coursePhase = .round1Ascending
         }
+        isCodeScreensaverMode = true
+        startupSequenceActivated = true
+        startupSequenceStartDate = .now
+        startupSequenceElapsed = 0
+        startupSpeechPhase = .pendingArmed
+        questionBoxIntroProgress = 0
+        isLaunchTransitionAnimating = false
+        launchTileScale = 1
+        launchTileOpacity = 1
         isRoundPaused = false
         isRoundArmed = true
         roundRevealElapsedBeats = 0
         roundRevealLastTickDate = nil
-        handleTransportStopButton()
+        syncBackingTrackPlayback()
         startGameFromBeginning()
         developerPromptText = ""
         beginnerRuntime.answerBoxReady = false
-    }
-
-    private func handleTransportStopButton() {
-        midiEngine.stop()
-        isBackingTrackPlaying = midiEngine.isPlaying
-        manualTransportPlaybackActive = false
-        transportStatusDetail = "MANUAL_STOP"
-        playbackPathUsed = "NONE"
-        beginnerRuntime.beatLightFlashOn = false
-        beginnerRuntime.beatLightLastProcessedBeat = nil
-        beginnerRuntime.beatLightIntroMeasureSkipped = false
-        showDeveloperPrompt("Transport: STOP")
-    }
-
-    private func handleTransportStartButton() {
-        guard let selectedTrack = resolvedTransportTrack(),
-              let trackURL = selectedTrack.resourceURL() else {
-            showDeveloperPrompt("No track selected for restart")
-            return
-        }
-
-        midiEngine.stop()
-        applyBeginnerBassTransposeForCurrentStage()
-        midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
-        isBackingTrackPlaying = midiEngine.isPlaying
-        manualTransportPlaybackActive = midiEngine.isPlaying
-        transportStatusDetail = midiEngine.isPlaying ? "MANUAL_START_OK" : "MANUAL_START_FAILED"
-        playbackPathUsed = midiEngine.isPlaying ? "SEQUENCER" : "NONE"
-        beginnerRuntime.beatLightFlashOn = false
-        beginnerRuntime.beatLightLastProcessedBeat = nil
-        beginnerRuntime.beatLightIntroMeasureSkipped = false
-        showDeveloperPrompt("Transport: START \(selectedTrack.resourceName)")
-    }
-
-    private func resolvedTransportTrack() -> BackingTrack? {
-        if layoutMode == .beginner,
-           let beginnerLoopThree = availableBackingTracks.first(where: { $0.resourceName.caseInsensitiveCompare("Beginner_loop_03") == .orderedSame }) {
-            return beginnerLoopThree
-        }
-
-        if layoutMode == .beginner {
-            let directLoopThree = BackingTrack(
-                title: "BEGINNER LOOP 03",
-                resourceName: "Beginner_loop_03",
-                fileExtension: "mid"
-            )
-            if directLoopThree.resourceURL() != nil {
-                return directLoopThree
-            }
-        }
-
-        if let selectedTrackID = audioSettings.selectedBackingTrackID,
-           let selectedTrack = availableBackingTracks.first(where: { $0.id == selectedTrackID }) {
-            return selectedTrack
-        }
-
-        return availableBackingTracks.first
     }
 
     private func postponeBeatDeadlineForAssist() {
