@@ -1853,15 +1853,9 @@ struct ContentView: View {
         guard layoutMode == .beginner else { return nil }
         switch beginnerRuntime.coursePhase {
         case .round1Ascending:
-            switch beginnerRoundZeroIntroDisplayPhase {
-            case .centeredRoundZeroChordMode:
+            if !beginnerRuntime.answerBoxReady,
+               !beginnerRuntime.roundOneIntroActive {
                 return nil
-            case .roundZeroHeader:
-                return "BEGINNER ROUND 0"
-            case .roundZeroScaleTitle:
-                return "BEGINNER ROUND 0\nEm Pentatonic"
-            case .noteReveal, .inactive:
-                break
             }
             let progressLine = beginnerPentatonicProgressText
             let roundOneSubtitle = beginnerCurrentScaleTitle

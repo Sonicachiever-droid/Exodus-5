@@ -7,75 +7,75 @@
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
-		E647A99B2F751CD400552C78 /* PBXContainerItemProxy */ = {
+		E63FA62A2F8286D200CA64C1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = E647A9812F751CD000552C78 /* Project object */;
+			containerPortal = E63FA6102F8286CE00CA64C1 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = E647A9882F751CD000552C78;
-			remoteInfo = "Exodus 5";
+			remoteGlobalIDString = E63FA6172F8286CE00CA64C1;
+			remoteInfo = "Numbers 3";
 		};
-		E647A9A52F751CD400552C78 /* PBXContainerItemProxy */ = {
+		E63FA6342F8286D200CA64C1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = E647A9812F751CD000552C78 /* Project object */;
+			containerPortal = E63FA6102F8286CE00CA64C1 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = E647A9882F751CD000552C78;
-			remoteInfo = "Exodus 5";
+			remoteGlobalIDString = E63FA6172F8286CE00CA64C1;
+			remoteInfo = "Numbers 3";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		E647A9892F751CD000552C78 /* Exodus 5.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Exodus 5.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E647A99A2F751CD400552C78 /* Exodus 5Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Exodus 5Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		E647A9A42F751CD400552C78 /* Exodus 5UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Exodus 5UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E63FA6182F8286CE00CA64C1 /* Numbers 3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Numbers 3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E63FA6292F8286D200CA64C1 /* Numbers 3Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Numbers 3Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E63FA6332F8286D200CA64C1 /* Numbers 3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Numbers 3UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E647A9AC2F751CD400552C78 /* Exceptions for "Exodus 5" folder in "Exodus 5" target */ = {
+		E63FA63B2F8286D200CA64C1 /* Exceptions for "Numbers 3" folder in "Numbers 3" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = E647A9882F751CD000552C78 /* Exodus 5 */;
+			target = E63FA6172F8286CE00CA64C1 /* Numbers 3 */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E647A98B2F751CD000552C78 /* Exodus 5 */ = {
+		E63FA61A2F8286CE00CA64C1 /* Numbers 3 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				E647A9AC2F751CD400552C78 /* Exceptions for "Exodus 5" folder in "Exodus 5" target */,
+				E63FA63B2F8286D200CA64C1 /* Exceptions for "Numbers 3" folder in "Numbers 3" target */,
 			);
-			path = "Exodus 5";
+			path = "Numbers 3";
 			sourceTree = "<group>";
 		};
-		E647A99D2F751CD400552C78 /* Exodus 5Tests */ = {
+		E63FA62C2F8286D200CA64C1 /* Numbers 3Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Exodus 5Tests";
+			path = "Numbers 3Tests";
 			sourceTree = "<group>";
 		};
-		E647A9A72F751CD400552C78 /* Exodus 5UITests */ = {
+		E63FA6362F8286D200CA64C1 /* Numbers 3UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Exodus 5UITests";
+			path = "Numbers 3UITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		E647A9862F751CD000552C78 /* Frameworks */ = {
+		E63FA6152F8286CE00CA64C1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9972F751CD400552C78 /* Frameworks */ = {
+		E63FA6262F8286D200CA64C1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9A12F751CD400552C78 /* Frameworks */ = {
+		E63FA6302F8286D200CA64C1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -85,22 +85,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		E647A9802F751CD000552C78 = {
+		E63FA60F2F8286CE00CA64C1 = {
 			isa = PBXGroup;
 			children = (
-				E647A98B2F751CD000552C78 /* Exodus 5 */,
-				E647A99D2F751CD400552C78 /* Exodus 5Tests */,
-				E647A9A72F751CD400552C78 /* Exodus 5UITests */,
-				E647A98A2F751CD000552C78 /* Products */,
+				E63FA61A2F8286CE00CA64C1 /* Numbers 3 */,
+				E63FA62C2F8286D200CA64C1 /* Numbers 3Tests */,
+				E63FA6362F8286D200CA64C1 /* Numbers 3UITests */,
+				E63FA6192F8286CE00CA64C1 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		E647A98A2F751CD000552C78 /* Products */ = {
+		E63FA6192F8286CE00CA64C1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E647A9892F751CD000552C78 /* Exodus 5.app */,
-				E647A99A2F751CD400552C78 /* Exodus 5Tests.xctest */,
-				E647A9A42F751CD400552C78 /* Exodus 5UITests.xctest */,
+				E63FA6182F8286CE00CA64C1 /* Numbers 3.app */,
+				E63FA6292F8286D200CA64C1 /* Numbers 3Tests.xctest */,
+				E63FA6332F8286D200CA64C1 /* Numbers 3UITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,134 +108,134 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E647A9882F751CD000552C78 /* Exodus 5 */ = {
+		E63FA6172F8286CE00CA64C1 /* Numbers 3 */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E647A9AD2F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5" */;
+			buildConfigurationList = E63FA63C2F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3" */;
 			buildPhases = (
-				E647A9852F751CD000552C78 /* Sources */,
-				E647A9862F751CD000552C78 /* Frameworks */,
-				E647A9872F751CD000552C78 /* Resources */,
+				E63FA6142F8286CE00CA64C1 /* Sources */,
+				E63FA6152F8286CE00CA64C1 /* Frameworks */,
+				E63FA6162F8286CE00CA64C1 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				E647A98B2F751CD000552C78 /* Exodus 5 */,
+				E63FA61A2F8286CE00CA64C1 /* Numbers 3 */,
 			);
-			name = "Exodus 5";
+			name = "Numbers 3";
 			packageProductDependencies = (
 			);
-			productName = "Exodus 5";
-			productReference = E647A9892F751CD000552C78 /* Exodus 5.app */;
+			productName = "Numbers 3";
+			productReference = E63FA6182F8286CE00CA64C1 /* Numbers 3.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E647A9992F751CD400552C78 /* Exodus 5Tests */ = {
+		E63FA6282F8286D200CA64C1 /* Numbers 3Tests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E647A9B22F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5Tests" */;
+			buildConfigurationList = E63FA6412F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3Tests" */;
 			buildPhases = (
-				E647A9962F751CD400552C78 /* Sources */,
-				E647A9972F751CD400552C78 /* Frameworks */,
-				E647A9982F751CD400552C78 /* Resources */,
+				E63FA6252F8286D200CA64C1 /* Sources */,
+				E63FA6262F8286D200CA64C1 /* Frameworks */,
+				E63FA6272F8286D200CA64C1 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E647A99C2F751CD400552C78 /* PBXTargetDependency */,
+				E63FA62B2F8286D200CA64C1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				E647A99D2F751CD400552C78 /* Exodus 5Tests */,
+				E63FA62C2F8286D200CA64C1 /* Numbers 3Tests */,
 			);
-			name = "Exodus 5Tests";
+			name = "Numbers 3Tests";
 			packageProductDependencies = (
 			);
-			productName = "Exodus 5Tests";
-			productReference = E647A99A2F751CD400552C78 /* Exodus 5Tests.xctest */;
+			productName = "Numbers 3Tests";
+			productReference = E63FA6292F8286D200CA64C1 /* Numbers 3Tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		E647A9A32F751CD400552C78 /* Exodus 5UITests */ = {
+		E63FA6322F8286D200CA64C1 /* Numbers 3UITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E647A9B52F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5UITests" */;
+			buildConfigurationList = E63FA6442F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3UITests" */;
 			buildPhases = (
-				E647A9A02F751CD400552C78 /* Sources */,
-				E647A9A12F751CD400552C78 /* Frameworks */,
-				E647A9A22F751CD400552C78 /* Resources */,
+				E63FA62F2F8286D200CA64C1 /* Sources */,
+				E63FA6302F8286D200CA64C1 /* Frameworks */,
+				E63FA6312F8286D200CA64C1 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E647A9A62F751CD400552C78 /* PBXTargetDependency */,
+				E63FA6352F8286D200CA64C1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				E647A9A72F751CD400552C78 /* Exodus 5UITests */,
+				E63FA6362F8286D200CA64C1 /* Numbers 3UITests */,
 			);
-			name = "Exodus 5UITests";
+			name = "Numbers 3UITests";
 			packageProductDependencies = (
 			);
-			productName = "Exodus 5UITests";
-			productReference = E647A9A42F751CD400552C78 /* Exodus 5UITests.xctest */;
+			productName = "Numbers 3UITests";
+			productReference = E63FA6332F8286D200CA64C1 /* Numbers 3UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		E647A9812F751CD000552C78 /* Project object */ = {
+		E63FA6102F8286CE00CA64C1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
-					E647A9882F751CD000552C78 = {
-						CreatedOnToolsVersion = 26.3;
+					E63FA6172F8286CE00CA64C1 = {
+						CreatedOnToolsVersion = 26.4;
 					};
-					E647A9992F751CD400552C78 = {
-						CreatedOnToolsVersion = 26.3;
-						TestTargetID = E647A9882F751CD000552C78;
+					E63FA6282F8286D200CA64C1 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = E63FA6172F8286CE00CA64C1;
 					};
-					E647A9A32F751CD400552C78 = {
-						CreatedOnToolsVersion = 26.3;
-						TestTargetID = E647A9882F751CD000552C78;
+					E63FA6322F8286D200CA64C1 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = E63FA6172F8286CE00CA64C1;
 					};
 				};
 			};
-			buildConfigurationList = E647A9842F751CD000552C78 /* Build configuration list for PBXProject "Exodus 5" */;
+			buildConfigurationList = E63FA6132F8286CE00CA64C1 /* Build configuration list for PBXProject "Exodus 5" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = E647A9802F751CD000552C78;
+			mainGroup = E63FA60F2F8286CE00CA64C1;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = E647A98A2F751CD000552C78 /* Products */;
+			productRefGroup = E63FA6192F8286CE00CA64C1 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E647A9882F751CD000552C78 /* Exodus 5 */,
-				E647A9992F751CD400552C78 /* Exodus 5Tests */,
-				E647A9A32F751CD400552C78 /* Exodus 5UITests */,
+				E63FA6172F8286CE00CA64C1 /* Numbers 3 */,
+				E63FA6282F8286D200CA64C1 /* Numbers 3Tests */,
+				E63FA6322F8286D200CA64C1 /* Numbers 3UITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		E647A9872F751CD000552C78 /* Resources */ = {
+		E63FA6162F8286CE00CA64C1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9982F751CD400552C78 /* Resources */ = {
+		E63FA6272F8286D200CA64C1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9A22F751CD400552C78 /* Resources */ = {
+		E63FA6312F8286D200CA64C1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -245,21 +245,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		E647A9852F751CD000552C78 /* Sources */ = {
+		E63FA6142F8286CE00CA64C1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9962F751CD400552C78 /* Sources */ = {
+		E63FA6252F8286D200CA64C1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E647A9A02F751CD400552C78 /* Sources */ = {
+		E63FA62F2F8286D200CA64C1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -269,24 +269,26 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		E647A99C2F751CD400552C78 /* PBXTargetDependency */ = {
+		E63FA62B2F8286D200CA64C1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E647A9882F751CD000552C78 /* Exodus 5 */;
-			targetProxy = E647A99B2F751CD400552C78 /* PBXContainerItemProxy */;
+			target = E63FA6172F8286CE00CA64C1 /* Numbers 3 */;
+			targetProxy = E63FA62A2F8286D200CA64C1 /* PBXContainerItemProxy */;
 		};
-		E647A9A62F751CD400552C78 /* PBXTargetDependency */ = {
+		E63FA6352F8286D200CA64C1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E647A9882F751CD000552C78 /* Exodus 5 */;
-			targetProxy = E647A9A52F751CD400552C78 /* PBXContainerItemProxy */;
+			target = E63FA6172F8286CE00CA64C1 /* Numbers 3 */;
+			targetProxy = E63FA6342F8286D200CA64C1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		E647A9AE2F751CD400552C78 /* Debug */ = {
+		E63FA63D2F8286D200CA64C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
@@ -295,7 +297,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Exodus 5/Info.plist";
+				INFOPLIST_FILE = "Numbers 3/Info.plist";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -306,13 +308,14 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -323,15 +326,17 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
 		};
-		E647A9AF2F751CD400552C78 /* Release */ = {
+		E63FA63E2F8286D200CA64C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
@@ -340,7 +345,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Exodus 5/Info.plist";
+				INFOPLIST_FILE = "Numbers 3/Info.plist";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -351,13 +356,14 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -368,11 +374,11 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
 		};
-		E647A9B02F751CD400552C78 /* Debug */ = {
+		E63FA63F2F8286D200CA64C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -434,7 +440,7 @@
 			};
 			name = Debug;
 		};
-		E647A9B12F751CD400552C78 /* Release */ = {
+		E63FA6402F8286D200CA64C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -488,7 +494,7 @@
 			};
 			name = Release;
 		};
-		E647A9B32F751CD400552C78 /* Debug */ = {
+		E63FA6422F8286D200CA64C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -496,10 +502,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5Tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Numbers-3Tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -509,12 +515,12 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Exodus 5.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Exodus 5";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Numbers 3.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Numbers 3";
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
 		};
-		E647A9B42F751CD400552C78 /* Release */ = {
+		E63FA6432F8286D200CA64C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -522,10 +528,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5Tests";
+				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Numbers-3Tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -535,22 +541,22 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Exodus 5.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Exodus 5";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Numbers 3.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Numbers 3";
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
 		};
-		E647A9B62F751CD400552C78 /* Debug */ = {
+		E63FA6452F8286D200CA64C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5UITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Numbers-3UITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -560,22 +566,22 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = "Exodus 5";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TEST_TARGET_NAME = "Numbers 3";
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
 		};
-		E647A9B72F751CD400552C78 /* Release */ = {
+		E63FA6462F8286D200CA64C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MXFVMKBUS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Exodus-5UITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "kane-sonicachiever.com.Numbers-3UITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -585,51 +591,51 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = "Exodus 5";
-				XROS_DEPLOYMENT_TARGET = 26.2;
+				TEST_TARGET_NAME = "Numbers 3";
+				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E647A9842F751CD000552C78 /* Build configuration list for PBXProject "Exodus 5" */ = {
+		E63FA6132F8286CE00CA64C1 /* Build configuration list for PBXProject "Exodus 5" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E647A9B02F751CD400552C78 /* Debug */,
-				E647A9B12F751CD400552C78 /* Release */,
+				E63FA63F2F8286D200CA64C1 /* Debug */,
+				E63FA6402F8286D200CA64C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E647A9AD2F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5" */ = {
+		E63FA63C2F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E647A9AE2F751CD400552C78 /* Debug */,
-				E647A9AF2F751CD400552C78 /* Release */,
+				E63FA63D2F8286D200CA64C1 /* Debug */,
+				E63FA63E2F8286D200CA64C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E647A9B22F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5Tests" */ = {
+		E63FA6412F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3Tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E647A9B32F751CD400552C78 /* Debug */,
-				E647A9B42F751CD400552C78 /* Release */,
+				E63FA6422F8286D200CA64C1 /* Debug */,
+				E63FA6432F8286D200CA64C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E647A9B52F751CD400552C78 /* Build configuration list for PBXNativeTarget "Exodus 5UITests" */ = {
+		E63FA6442F8286D200CA64C1 /* Build configuration list for PBXNativeTarget "Numbers 3UITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E647A9B62F751CD400552C78 /* Debug */,
-				E647A9B72F751CD400552C78 /* Release */,
+				E63FA6452F8286D200CA64C1 /* Debug */,
+				E63FA6462F8286D200CA64C1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = E647A9812F751CD000552C78 /* Project object */;
+	rootObject = E63FA6102F8286CE00CA64C1 /* Project object */;
 }
