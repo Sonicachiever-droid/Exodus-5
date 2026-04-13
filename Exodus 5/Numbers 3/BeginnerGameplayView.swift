@@ -2314,6 +2314,9 @@ struct BeginnerGameplayView: View {
                 EmptyView()
             }
             .onAppear(perform: handleContentOnAppear)
+            .onDisappear {
+                midiEngine.stop()
+            }
             .sheet(isPresented: $showAudioPage) {
                 AudioPageView(
                     audioSettings: audioSettings,
@@ -3671,7 +3674,13 @@ struct BeginnerGameplayView: View {
             isBackingTrackPlaying = midiEngine.isPlaying
             return
         }
-        
+
+        // Skip restart if the same URL is already playing — avoids mid-beat click
+        if midiEngine.isPlaying, midiEngine.activeURL == trackURL {
+            isBackingTrackPlaying = true
+            return
+        }
+
         midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
         isBackingTrackPlaying = midiEngine.isPlaying
     }

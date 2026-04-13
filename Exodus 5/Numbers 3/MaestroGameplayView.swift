@@ -945,45 +945,6 @@ struct MaestroGameplayView: View {
     private let totalFrets: Int = 20
     private var maxFretOffset: Int { totalFrets }
     private var minFretOffset: Int { -totalFrets }
-    private var modeVariant: GameplayModeVariant {
-        switch selectedPhase {
-        case 3...6:
-            return .beat
-        case 7...8:
-            return .chord
-        case 9...10:
-            return currentRound.isMultiple(of: 2) ? .beat : .chord
-        case 11...12:
-            switch currentRound % 3 {
-            case 1:
-                return .beat
-            case 2:
-                return .chord
-            default:
-                return .freestyle
-            }
-        default:
-            break
-        }
-
-        switch selectedMode {
-        case .beat:
-            return .beat
-        case .chord:
-            return .chord
-        case .mixed:
-            switch currentRound % 3 {
-            case 1:
-                return .beat
-            case 2:
-                return .chord
-            default:
-                return .freestyle
-            }
-        case .freestyle, .oneHand, .twoHand:
-            return .freestyle
-        }
-    }
 
     private var isPhaseDescending: Bool {
         [2, 4, 6, 8, 10, 12].contains(selectedPhase)
@@ -998,22 +959,11 @@ struct MaestroGameplayView: View {
     }
 
     private var activeStringOrder: [Int] {
-        let baseOrder: [Int] = {
-            switch selectedMode {
-            case .oneHand:
-                return [1, 2, 3, 4]
-            default:
-                return [1, 2, 3, 4, 5, 6]
-            }
-        }()
-
-        switch modeVariant {
-        case .chord:
-            return Array(baseOrder.enumerated().compactMap { index, value in
-                index.isMultiple(of: 2) ? value : nil
-            })
-        case .freestyle, .beat:
-            return baseOrder
+        switch selectedMode {
+        case .oneHand:
+            return [1, 2, 3, 4]
+        default:
+            return [1, 2, 3, 4, 5, 6]
         }
     }
 
@@ -1086,7 +1036,8 @@ struct MaestroGameplayView: View {
     @State private var lastResolvedCorrectNote: String? = nil
     @State private var lastResolvedCorrectString: Int? = nil
     @State private var currentPromptStrings: [Int] = [1]
-    @State private var beatQuestionDeadline: Date? = nil
+    @State private var isRoundPaused: Bool = false
+    @State private var transportStoppedForResume: Bool = false
     @State private var showFretboardGuide: Bool = false
     @State private var isLaunchTransitionAnimating: Bool = false
     @State private var launchTileScale: CGFloat = 1
@@ -1094,6 +1045,12 @@ struct MaestroGameplayView: View {
     @State private var beatPulseActive: Bool = false
     @State private var beatCountInRemaining: Int = 0
     @State private var nextBeatTickDate: Date? = nil
+    @State private var pendingBassTransposeSemitones: Int? = nil
+    @State private var pendingNeckShiftRound: Int? = nil
+    @State private var shiftStartBeatPosition: Double? = nil
+    @State private var lastProcessedBeatBucket: Int? = nil
+    @State private var beatLightFlashOn: Bool = false
+    @State private var beatLightLastProcessedBeat: Int? = nil
     @State private var questionBoxPulsePhase: Bool = false
     @State private var nextQuestionBoxPulseDate: Date? = nil
     @State private var questionBoxIntroProgress: CGFloat = 0
@@ -1104,9 +1061,13 @@ struct MaestroGameplayView: View {
     }
 
     @State private var startupSpeechPhase: StartupSpeechPhase = .idle
+    @State private var audioSettings = AudioSettings()
+    @State private var availableBackingTracks: [BackingTrack] = []
+    @State private var showAudioPage: Bool = false
 
     private let audioEngine = GameplayAudioEngine()
     private let guitarNoteEngine: GuitarNotePlaying = GuitarNoteEngine.shared
+    private let midiEngine: BackingTrackPlaying = SimpleMIDIEngine()
     private let audioEngineEnabled: Bool = false
     private let speakBeatTicks: Bool = false
     private let speakGameplayPrompts: Bool = false
@@ -1279,6 +1240,7 @@ struct MaestroGameplayView: View {
             }()
             let effectiveLeftThumbState = isCodeScreensaverMode ? screensaverThumbState : leftThumbState
             let effectiveRightThumbState = isCodeScreensaverMode ? screensaverThumbState : rightThumbState
+            let startButtonBlinkOn = isCodeScreensaverMode && startupState.isVisible
             let initialGameplayDimOpacity: CGFloat = (isCodeScreensaverMode && !startupSequenceActivated) ? 0.42 : 1.0
 
 #if DEBUG
@@ -1401,27 +1363,18 @@ struct MaestroGameplayView: View {
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                                         .stroke(strokeColor, lineWidth: 2)
                                 )
-                                .overlay {
+                                .overlay(
                                     Text(note)
                                         .font(.system(size: textSize, weight: .black, design: .monospaced))
                                         .foregroundStyle(textColor)
                                         .minimumScaleFactor(0.32)
                                         .lineLimit(1)
-                                }
+                                )
                                 .frame(width: boxWidth, height: guideBoxHeight)
                                 .position(x: stringCenters[index], y: guideBoxCenterY)
                         }
                     }
                     .allowsHitTesting(false)
-                }
-
-                if !isCodeScreensaverMode && modeVariant == .beat {
-                    Circle()
-                        .fill(Color.green.opacity(beatPulseActive ? 0.86 : 0.22))
-                        .frame(width: beatPulseActive ? 30 : 18, height: beatPulseActive ? 30 : 18)
-                        .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
-                        .position(x: proxy.size.width / 2, y: topStatusCenterY)
-                        .animation(.easeInOut(duration: 0.16), value: beatPulseActive)
                 }
 
 #if DEBUG
@@ -1481,6 +1434,18 @@ struct MaestroGameplayView: View {
                     .position(x: proxy.size.width / 2, y: topScreenY)
                     .opacity(codenameNemoEnabled ? 0 : initialGameplayDimOpacity * introScale)
 
+                    // Blue beat light (left side)
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 12, height: 12)
+                        .shadow(color: Color(red: 0.28, green: 0.7, blue: 1.0).opacity(0.95), radius: 12)
+                        .shadow(color: Color.white.opacity(0.45), radius: 5)
+                        .overlay(Circle().stroke(Color.white.opacity(0.75), lineWidth: 1))
+                        .position(x: leftAnswerCenterX - lowerScreenWidth/2 - 16, y: noteChoiceY)
+                        .opacity(beatLightFlashOn ? 1 : 0)
+                        .animation(.easeOut(duration: 0.08), value: beatLightFlashOn)
+                        .allowsHitTesting(false)
+
                     MiniTVFrame(text: leftChoiceNote, width: lowerScreenWidth, height: lowerScreenHeight, fontScale: 1.0, isDarkScreen: leftChoiceNote.contains("#") || leftChoiceNote.contains("b"))
                         .position(x: leftAnswerCenterX, y: noteChoiceY)
                         .allowsHitTesting(false)
@@ -1528,6 +1493,60 @@ struct MaestroGameplayView: View {
                 debugGridOverlay(size: proxy.size, columns: debugGridColumns, rows: debugGridRows)
                     .allowsHitTesting(false)
                     .opacity(developerOverlaysEnabled ? 0.8 : 0)
+            }
+            .overlay {
+                let maestroTransportCenterY = lowerWhitePipingY + (proxy.size.height - lowerWhitePipingY) * 0.28
+                HStack(spacing: 6) {
+                    Button("START") { handleMaestroStartButton() }
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(startButtonBlinkOn ? Color.green.opacity(0.9) : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                                )
+                        )
+                    Button("STOP") { handleMaestroStopButton() }
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
+                        .disabled(isCodeScreensaverMode || isRoundPaused)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                        )
+                    Button("RESET") { handleMaestroResetButton() }
+                        .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                        )
+                }
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.black.opacity(0.92))
+                .buttonStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.94, green: 0.82, blue: 0.53),
+                                    Color(red: 0.78, green: 0.6, blue: 0.22),
+                                    Color(red: 0.94, green: 0.82, blue: 0.53)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .stroke(Color.black.opacity(0.26), lineWidth: 1.2)
+                        )
+                )
+                .frame(width: min((proxy.size.width - 24) * 0.88, 370) * 0.72, height: 50)
+                .position(x: proxy.size.width / 2, y: maestroTransportCenterY)
+                .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay(alignment: .bottom) {
                 GameplayControlPlateShell(
@@ -1593,15 +1612,54 @@ struct MaestroGameplayView: View {
                 displayedBankDollars = bankDollars
                 showDeveloperPrompt("MODE: \(selectedMode.rawValue.uppercased())")
                 questionBoxIntroProgress = isCodeScreensaverMode ? 0 : 1
+                availableBackingTracks = BackingTrack.discoverBundledTracks()
+                audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
+            }
+            .onDisappear {
+                midiEngine.stop()
+            }
+            .sheet(isPresented: $showAudioPage) {
+                AudioPageView(
+                    audioSettings: audioSettings,
+                    availableBackingTracks: availableBackingTracks,
+                    onDone: {
+                        showAudioPage = false
+                    }
+                )
+            }
+            .onChange(of: audioSettings.guitarTonePreset) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: newValue,
+                    reverbLevel: audioSettings.reverbLevel,
+                    delayLevel: audioSettings.delayLevel
+                )
+            }
+            .onChange(of: audioSettings.reverbLevel) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: audioSettings.guitarTonePreset,
+                    reverbLevel: newValue,
+                    delayLevel: audioSettings.delayLevel
+                )
+            }
+            .onChange(of: audioSettings.delayLevel) { _, newValue in
+                guitarNoteEngine.configure(
+                    preset: audioSettings.guitarTonePreset,
+                    reverbLevel: audioSettings.reverbLevel,
+                    delayLevel: newValue
+                )
             }
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { date in
+                if isRoundPaused {
+                    return
+                }
+
                 if startupSequenceActivated {
                     startupSequenceElapsed = max(date.timeIntervalSince(startupSequenceStartDate), 0)
                     let startupState = StartupSequenceView.state(for: startupSequenceElapsed)
                     handleStartupSpeech(for: startupState.phase)
                 }
 
-                if !isCodeScreensaverMode, modeVariant == .beat {
+                if !isCodeScreensaverMode {
                     let bpm = Double(max(beatBPM, 60))
                     let beatInterval = max(0.25, 60.0 / bpm)
                     if nextBeatTickDate == nil {
@@ -1621,32 +1679,57 @@ struct MaestroGameplayView: View {
                         if beatCountInRemaining > 0 {
                             beatCountInRemaining -= 1
                             showDeveloperPrompt("COUNT IN: \(beatCountInRemaining)")
-                            if beatCountInRemaining == 0 {
-                                beatQuestionDeadline = date.addingTimeInterval(max(0.75, 120.0 / bpm))
-                            }
                         }
+
                     }
                 } else {
                     nextBeatTickDate = nil
                     beatPulseActive = false
                 }
 
-                if !isCodeScreensaverMode,
-                   !isResolvingAnswer,
-                   modeVariant == .beat,
-                   let deadline = beatQuestionDeadline,
-                   date >= deadline {
-                    beatQuestionDeadline = nil
-                    isResolvingAnswer = true
-                    leftThumbState = .red
-                    rightThumbState = .red
-                    activeAnswerFeedback = .red
+                // Handle beat light flash and neck shift countdown using actual MIDI beat position
+                if !isCodeScreensaverMode, midiEngine.isPlaying {
+                    let currentBeat = midiEngine.currentBeatPosition()
+                    let currentBeatBucket = Int(floor(currentBeat))
 
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        leftThumbState = .neutral
-                        rightThumbState = .neutral
-                        questionBoxAssistActive = false
-                        advanceGame(afterCorrectAnswer: false)
+                    // Blue beat light flash
+                    if beatLightLastProcessedBeat == nil {
+                        beatLightLastProcessedBeat = currentBeatBucket
+                    } else if beatLightLastProcessedBeat != currentBeatBucket {
+                        beatLightLastProcessedBeat = currentBeatBucket
+                        beatLightFlashOn = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            beatLightFlashOn = false
+                        }
+                    }
+
+                    if lastProcessedBeatBucket == nil {
+                        lastProcessedBeatBucket = currentBeatBucket
+                    } else if lastProcessedBeatBucket != currentBeatBucket {
+                        lastProcessedBeatBucket = currentBeatBucket
+
+                        if let startBeat = shiftStartBeatPosition {
+                            let elapsedBeats = currentBeat - startBeat
+                            if elapsedBeats >= 3 {
+                                // 3 beats passed - perform neck shift and transpose
+                                if let nextRound = pendingNeckShiftRound {
+                                    currentRound = nextRound
+                                    roundStringIndex = 0
+                                    pendingNeckShiftRound = nil
+                                }
+                                if let semitones = pendingBassTransposeSemitones {
+                                    midiEngine.setBassTransposeSemitones(semitones)
+                                    pendingBassTransposeSemitones = nil
+                                }
+                                shiftStartBeatPosition = nil
+                                // Stop guitar note and prepare question after shift
+                                guitarNoteEngine.stopAll()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.05) {
+                                    prepareCurrentQuestion()
+                                    isResolvingAnswer = false
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1700,10 +1783,9 @@ struct MaestroGameplayView: View {
         bankDollars = 0
         displayedBankDollars = 0
         walletDollars = 0
-        beatQuestionDeadline = nil
         currentPromptStrings = [1]
         activePickedStringNumbers = [1]
-        beatCountInRemaining = modeVariant == .beat ? 4 : 0
+        beatCountInRemaining = 4
         nextBeatTickDate = nil
         leftThumbState = .neutral
         rightThumbState = .neutral
@@ -1713,6 +1795,14 @@ struct MaestroGameplayView: View {
         developerPromptText = ""
         currentCorrectNote = ""
         lastResolvedCorrectNote = nil
+        lastResolvedCorrectString = nil
+        pendingBassTransposeSemitones = nil
+        pendingNeckShiftRound = nil
+        shiftStartBeatPosition = nil
+        lastProcessedBeatBucket = nil
+        beatLightFlashOn = false
+        beatLightLastProcessedBeat = nil
+        midiEngine.setBassTransposeSemitones(0)
         prepareCurrentQuestion()
     }
 
@@ -1757,7 +1847,6 @@ struct MaestroGameplayView: View {
 
         guard force || !isResolvingAnswer else { return }
         isResolvingAnswer = true
-        beatQuestionDeadline = nil
 
         let isCorrect = side == correctAnswerSide
         if isCorrect {
@@ -1788,11 +1877,118 @@ struct MaestroGameplayView: View {
             questionBoxAssistActive = false
             if isCorrect {
                 advanceGame(afterCorrectAnswer: true)
-                isResolvingAnswer = false
             } else {
                 advanceGame(afterCorrectAnswer: false)
             }
         }
+    }
+
+    private func handleMaestroStartButton() {
+        if isCodeScreensaverMode {
+            if !startupSequenceActivated {
+                startupSequenceActivated = true
+                startupSequenceStartDate = .now
+                startupSequenceElapsed = 0
+                questionBoxIntroProgress = 0
+                return
+            }
+            guard !isLaunchTransitionAnimating else { return }
+            isLaunchTransitionAnimating = true
+            launchTileScale = 1
+            launchTileOpacity = 1
+            withAnimation(.easeIn(duration: 0.4725)) {
+                launchTileScale = 0.1
+                launchTileOpacity = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4725) {
+                isCodeScreensaverMode = false
+                startupSequenceActivated = false
+                startupSequenceElapsed = 0
+                startupSpeechPhase = .idle
+                currentFretStart = isPhaseDescending ? maxFretOffset : minFretOffset
+                startGameFromBeginning()
+                isLaunchTransitionAnimating = false
+                launchTileScale = 1
+                launchTileOpacity = 1
+                isRoundPaused = false
+                transportStoppedForResume = false
+                syncMaestroBackingTrack()
+                withAnimation(.easeOut(duration: 0.6)) {
+                    questionBoxIntroProgress = 1
+                }
+            }
+            return
+        }
+
+        if transportStoppedForResume {
+            isRoundPaused = false
+            transportStoppedForResume = false
+            nextBeatTickDate = nil
+            beatLightLastProcessedBeat = nil
+            syncMaestroBackingTrack(allowResumeFromPause: true)
+            return
+        }
+    }
+
+    private func handleMaestroStopButton() {
+        guard !isCodeScreensaverMode, !isRoundPaused else { return }
+        isRoundPaused = true
+        transportStoppedForResume = true
+        nextBeatTickDate = nil
+        beatPulseActive = false
+        beatLightFlashOn = false
+        beatLightLastProcessedBeat = nil
+        midiEngine.pause()
+    }
+
+    private func handleMaestroResetButton() {
+        isRoundPaused = false
+        transportStoppedForResume = false
+        nextBeatTickDate = nil
+        beatPulseActive = false
+        midiEngine.stop()
+        isCodeScreensaverMode = true
+        startupSequenceActivated = true
+        startupSequenceStartDate = .now
+        startupSequenceElapsed = 0
+        startupSpeechPhase = .pendingArmed
+        questionBoxIntroProgress = 0
+        isLaunchTransitionAnimating = false
+        launchTileScale = 1
+        launchTileOpacity = 1
+        startGameFromBeginning()
+        // Note: startGameFromBeginning now handles the transpose restart
+        pendingBassTransposeSemitones = nil
+        pendingNeckShiftRound = nil
+        shiftStartBeatPosition = nil
+        lastProcessedBeatBucket = nil
+        beatLightFlashOn = false
+        beatLightLastProcessedBeat = nil
+    }
+
+    private func syncMaestroBackingTrack(allowResumeFromPause: Bool = false) {
+        if availableBackingTracks.isEmpty {
+            availableBackingTracks = BackingTrack.discoverBundledTracks()
+        }
+        guard !availableBackingTracks.isEmpty else {
+            midiEngine.stop()
+            return
+        }
+        audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
+        guard let selectedTrackID = audioSettings.selectedBackingTrackID,
+              let selectedTrack = availableBackingTracks.first(where: { $0.id == selectedTrackID }),
+              let trackURL = selectedTrack.resourceURL() else {
+            midiEngine.stop()
+            return
+        }
+        if allowResumeFromPause {
+            midiEngine.resume()
+            return
+        }
+        if midiEngine.isPlaying, midiEngine.activeURL == trackURL {
+            return
+        }
+        midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
     }
 
     private func purchaseAnswerFromQuestionBox() {
@@ -1801,7 +1997,6 @@ struct MaestroGameplayView: View {
         bankDollars = max(bankDollars - charge, 0)
         displayedBankDollars = bankDollars
         walletDollars = bankDollars
-        beatQuestionDeadline = nil
 
         questionBoxAssistActive = true
         if correctAnswerSide == .left {
@@ -1834,65 +2029,42 @@ struct MaestroGameplayView: View {
         balanceDollars += payout
         highScoreDollars = max(highScoreDollars, bankDollars)
 
+        // Only shift neck after correct answer on low E string (string 6)
+        if lastResolvedCorrectString == 6 {
+            // Schedule neck shift and bass transpose after 3 beats
+            let nextRound = if !isPhaseDescending {
+                currentRound < 12 ? currentRound + 1 : 0
+            } else {
+                currentRound > 0 ? currentRound - 1 : 0
+            }
+            pendingBassTransposeSemitones = max(nextRound, 0) % 12
+            pendingNeckShiftRound = nextRound
+            shiftStartBeatPosition = midiEngine.currentBeatPosition()
+            return
+        }
+
+        // For other strings, just continue to next string in same round
         if usesRandomStringOrder {
             roundStringIndex = Int.random(in: 0..<max(activeStringOrder.count, 1))
         } else if roundStringIndex < activeStringOrder.count - 1 {
             roundStringIndex += 1
         } else {
             roundStringIndex = 0
-            if !isPhaseDescending {
-                if currentRound < 12 {
-                    currentRound += 1
-                } else {
-                    startGameFromBeginning()
-                    return
-                }
-            } else {
-                if currentRound > 0 {
-                    currentRound -= 1
-                } else {
-                    startGameFromBeginning()
-                    return
-                }
-            }
         }
-
         prepareCurrentQuestion()
+        isResolvingAnswer = false
     }
 
     private func prepareCurrentQuestion() {
         let targetString = activeStringOrder[min(max(roundStringIndex, 0), activeStringOrder.count - 1)]
-
-        if modeVariant == .chord {
-            let partner = chordPartner(for: targetString, in: selectedMode == .oneHand ? [1, 2, 3, 4] : [1, 2, 3, 4, 5, 6])
-            currentPromptStrings = Array(Set([targetString, partner])).sorted()
-        } else {
-            currentPromptStrings = [targetString]
-        }
+        currentPromptStrings = [targetString]
 
         let noteString = currentPromptStrings.first ?? targetString
         let fret = max(currentRound, 0)
-        let useFlats: Bool = {
-            switch modeVariant {
-            case .beat, .chord:
-                return false
-            case .freestyle:
-                return isDescendingPhase
-            }
-        }()
-        let correctNote: String
-        let incorrectNote: String
-        if modeVariant == .chord, currentPromptStrings.count > 1 {
-            let chordNotes = currentPromptStrings.map { noteName(forString: $0, fret: fret, useFlats: false) }
-            correctNote = chordNotes.joined(separator: "+")
-            let replaceIndex = Int.random(in: 0..<chordNotes.count)
-            var wrongNotes = chordNotes
-            wrongNotes[replaceIndex] = randomIncorrectNote(excluding: wrongNotes[replaceIndex], useFlats: false)
-            incorrectNote = wrongNotes.joined(separator: "+")
-        } else {
-            correctNote = noteName(forString: noteString, fret: fret, useFlats: useFlats)
-            incorrectNote = randomIncorrectNote(excluding: correctNote, useFlats: useFlats)
-        }
+        let useFlats = false
+        let correctNote = noteName(forString: noteString, fret: fret, useFlats: useFlats)
+        let incorrectNote = randomIncorrectNote(excluding: correctNote, useFlats: useFlats)
+
         let correctOnLeft = Bool.random()
 
         if correctOnLeft {
@@ -1914,15 +2086,7 @@ struct MaestroGameplayView: View {
 
         // Cache labels so they stay in sync with the question
         cachedFretStatusLabel = fret == 0 ? "OPEN" : "FRET \(fret)"
-        cachedStringStatusLabel = currentPromptStrings.count > 1
-            ? "STRINGS \(currentPromptStrings.map(String.init).joined(separator: "+"))"
-            : "STRING \(currentPromptStrings[0])"
-        if !isCodeScreensaverMode && modeVariant == .beat && beatCountInRemaining == 0 {
-            let bpm = Double(max(beatBPM, 60))
-            beatQuestionDeadline = .now.addingTimeInterval(max(0.75, 120.0 / bpm))
-        } else {
-            beatQuestionDeadline = nil
-        }
+        cachedStringStatusLabel = "STRING \(currentPromptStrings[0])"
 
         if audioEngineEnabled && speakGameplayPrompts {
             let promptSpoken = currentPromptStrings.count > 1
@@ -1987,17 +2151,6 @@ struct MaestroGameplayView: View {
         return pool.randomElement() ?? (correctIsAccidental ? "C#" : "C")
     }
 
-    private func chordPartner(for string: Int, in order: [Int]) -> Int {
-        guard let index = order.firstIndex(of: string) else { return string }
-        if index + 1 < order.count {
-            return order[index + 1]
-        }
-        if index > 0 {
-            return order[index - 1]
-        }
-        return string
-    }
-
     private func textWidth(for text: String, font: UIFont) -> CGFloat {
         let attributes = [NSAttributedString.Key.font: font]
         return ceil(text.size(withAttributes: attributes).width)
@@ -2005,12 +2158,18 @@ struct MaestroGameplayView: View {
 
     private func handleGameplayMenuSelection(_ option: GameplayMenuOption) {
         gameplayMenuExpanded = false
+        if option == .audio {
+            availableBackingTracks = BackingTrack.discoverBundledTracks()
+            audioSettings.selectInitialBackingTrackIfNeeded(from: availableBackingTracks)
+            showAudioPage = true
+            showDeveloperPrompt("MENU: AUDIO")
+            return
+        }
         onMenuSelection?(option)
         showDeveloperPrompt("MENU: \(option.title)")
     }
 
     private func handleHintButtonPress() {
-        postponeBeatDeadlineForAssist()
         showDeveloperPrompt("HINT: \(hintTextForCurrentQuestion())")
     }
 
@@ -2057,15 +2216,9 @@ struct MaestroGameplayView: View {
 
     private func handleFretboardButtonPress() {
         showFretboardGuide.toggle()
-        postponeBeatDeadlineForAssist()
         showDeveloperPrompt(showFretboardGuide ? "Fretboard guide ON" : "Fretboard guide OFF")
     }
 
-    private func postponeBeatDeadlineForAssist() {
-        guard !isCodeScreensaverMode, modeVariant == .beat else { return }
-        let bpm = Double(max(beatBPM, 60))
-        beatQuestionDeadline = .now.addingTimeInterval(max(1.0, 120.0 / bpm))
-    }
 
     private func showDeveloperPrompt(_ text: String) {
         developerPromptText = text

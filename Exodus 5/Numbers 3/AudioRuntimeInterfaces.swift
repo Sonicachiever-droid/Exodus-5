@@ -2,6 +2,7 @@ import Foundation
 
 protocol BackingTrackPlaying {
     var isPlaying: Bool { get }
+    var activeURL: URL? { get }
     func play(url: URL, title: String, loop: Bool)
     func pause()
     func resume()
@@ -16,6 +17,7 @@ protocol GuitarNotePlaying {
         reverbLevel: AudioEffectLevel,
         delayLevel: AudioEffectLevel
     )
+    func stopAll()
     func play(string: Int, fret: Int, velocity: Float)
     @discardableResult
     func playChord(midiNotes: [Int], velocity: Float, sustainMultiplier: Double) -> TimeInterval

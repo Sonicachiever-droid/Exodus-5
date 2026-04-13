@@ -14,7 +14,8 @@ final class SimpleMIDIEngine: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var currentTrackTitle: String = ""
 
-    private var currentURL: URL?
+    private(set) var currentURL: URL?
+    var activeURL: URL? { currentURL }
     private var isLooping: Bool = true
     private var loopTimer: Timer?
     private let loopLengthInBeats: TimeInterval = 16
@@ -185,7 +186,16 @@ final class SimpleMIDIEngine: ObservableObject {
     }
 
     private func applyBassTranspose() {
+        // Stop all bass notes first to prevent "swoop" effect when changing pitch
+        sendAllNotesOff(to: bassSampler)
         bassSampler.globalTuning = Float(bassTransposeSemitones * 100)
+    }
+
+    private func sendAllNotesOff(to sampler: AVAudioUnitSampler) {
+        // Send All Notes Off (CC 123) on all channels
+        for channel: UInt8 in 0...15 {
+            sampler.sendController(123, withValue: 0, onChannel: channel)
+        }
     }
 
     func muteTrack1() {
