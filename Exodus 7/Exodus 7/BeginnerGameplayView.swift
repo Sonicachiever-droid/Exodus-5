@@ -4098,13 +4098,22 @@ private struct FretWireLayer: View {
 private struct FretMarkerLayer: View {
     let fretRatios: [CGFloat]
 
-    private let markedFrets: [Int] = [3, 5, 7, 9]
+    private let markedFrets: [Int] = [3, 5, 7, 9, 15, 17, 19, 21]
+    private let stratNutWidthInches: CGFloat = 1.650
+    private let stratStringSpanInches: CGFloat = 1.362
+    private let totalStrings: Int = 6
 
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let height = geo.size.height
             let markerDiameter = max(min(width, height) * 0.135, 36)
+            let widthPerInch = width / stratNutWidthInches
+            let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
+            let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
+            // String indices from low-E side: string6=0, string5=1, string4=2, string3=3, string2=4, string1=5
+            let string2X = edgeMargin + 4 * interStringSpacing
+            let string5X = edgeMargin + 1 * interStringSpacing
 
             ZStack {
                 ForEach(markedFrets, id: \.self) { fret in
@@ -4134,6 +4143,33 @@ private struct FretMarkerLayer: View {
                             .position(x: width / 2, y: yPosition)
                             .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
                     }
+                }
+
+                // 12th fret double dots at string 2 (B) and string 5 (A)
+                if fretRatios.indices.contains(12), fretRatios.indices.contains(11) {
+                    let y12 = ((fretRatios[11] + fretRatios[12]) / 2) * height
+                    let dotFill = RadialGradient(
+                        colors: [
+                            Color.white.opacity(0.98),
+                            Color(red: 0.93, green: 0.93, blue: 0.9),
+                            Color(red: 0.72, green: 0.72, blue: 0.7)
+                        ],
+                        center: .center,
+                        startRadius: markerDiameter * 0.05,
+                        endRadius: markerDiameter * 0.6
+                    )
+                    Circle()
+                        .fill(dotFill)
+                        .overlay(Circle().stroke(Color.black.opacity(0.18), lineWidth: 1))
+                        .frame(width: markerDiameter, height: markerDiameter)
+                        .position(x: string2X, y: y12)
+                        .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
+                    Circle()
+                        .fill(dotFill)
+                        .overlay(Circle().stroke(Color.black.opacity(0.18), lineWidth: 1))
+                        .frame(width: markerDiameter, height: markerDiameter)
+                        .position(x: string5X, y: y12)
+                        .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
                 }
             }
         }
