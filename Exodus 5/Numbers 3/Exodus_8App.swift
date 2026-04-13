@@ -177,8 +177,8 @@ private struct Exodus8MenuSheet: View {
                         Stepper("Starting Fret: \(startingFret)", value: $startingFret, in: 0...(enableHighFrets ? 19 : 12))
 
                         Picker("Direction", selection: $directionRawValue) {
-                            Text("Phase 1 (Ascending)").tag(LessonDirection.ascending.rawValue)
-                            Text("Phase 2 (Descending)").tag(LessonDirection.descending.rawValue)
+                            Text("Ascending").tag(LessonDirection.ascending.rawValue)
+                            Text("Descending").tag(LessonDirection.descending.rawValue)
                         }
                         .disabled(directionLockActive)
 

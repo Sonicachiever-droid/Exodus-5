@@ -1581,7 +1581,6 @@ struct BeginnerGameplayView: View {
     }
 
     private var backingTrackShouldBeActive: Bool {
-        if showAudioPage { return false }
         return backingTrackShouldPlayInGameplay
     }
 
@@ -2324,13 +2323,6 @@ struct BeginnerGameplayView: View {
                     }
                 )
             }
-            .onChange(of: showAudioPage) { _, isPresented in
-                if isPresented {
-                    syncBackingTrackPlayback()
-                } else {
-                    syncBackingTrackPlayback(allowResumeFromPause: true)
-                }
-            }
             .onChange(of: audioSettings.guitarTonePreset) { _, newValue in
                 guitarNoteEngine.configure(
                     preset: newValue,
@@ -2890,7 +2882,7 @@ struct BeginnerGameplayView: View {
         beginnerRuntime.randomRevealStartBeatBucket = nil
 
         // Advance to next fret (or celebrate if at boundary)
-        if !isPhaseDescending {
+        if !isDescendingPhase {
             if currentRound < beginnerUpperFretBoundary {
                 currentRound += 1
             } else {
@@ -3347,7 +3339,7 @@ struct BeginnerGameplayView: View {
             roundStringIndex += 1
         } else {
             roundStringIndex = 0
-            if !isPhaseDescending {
+            if !isDescendingPhase {
                 if currentRound < beginnerUpperFretBoundary {
                     currentRound += 1
                 } else {

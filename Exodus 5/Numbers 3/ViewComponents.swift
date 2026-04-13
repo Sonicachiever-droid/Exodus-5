@@ -124,7 +124,7 @@ struct MiniTVFrame: View {
                 .fill(Color.clear)
                 .padding(12)
 
-            Text(text.uppercased())
+            Text(text.prefix(1).uppercased() + text.dropFirst())
                 .font(.system(size: max(height * 0.78 * fontScale, 14), weight: .black, design: .default))
                 .fontWidth(.condensed)
                 .kerning(0.9)
