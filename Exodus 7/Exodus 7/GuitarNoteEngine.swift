@@ -56,6 +56,15 @@ final class GuitarNoteEngine {
         startEngineIfNeeded()
     }
 
+    func stopAll() {
+        notePlaybackToken &+= 1
+        chordPlaybackToken &+= 1
+        if let activeMIDINote {
+            sampler.stopNote(activeMIDINote, onChannel: 0)
+            self.activeMIDINote = nil
+        }
+    }
+
     func play(string: Int, fret: Int, velocity: Float = 0.92) {
         guard let openMIDINote = openMIDINotesByString[string] else { return }
         let midiNote = openMIDINote + max(fret, 0)
@@ -87,9 +96,10 @@ final class GuitarNoteEngine {
         if let activeMIDINote {
             sampler.stopNote(activeMIDINote, onChannel: 0)
         }
-        engine.mainMixerNode.outputVolume = max(0.15, min(velocity, 1.0))
+        let adjustedVelocity = effectiveVelocity(for: toneConfiguration.preset, requested: velocity)
+        engine.mainMixerNode.outputVolume = max(0.15, min(adjustedVelocity, 1.0))
         let noteValue = UInt8(clampedMIDINote)
-        let velocityValue = UInt8(max(1, min(Int(velocity * 127.0), 127)))
+        let velocityValue = UInt8(max(1, min(Int(adjustedVelocity * 127.0), 127)))
         sampler.startNote(noteValue, withVelocity: velocityValue, onChannel: 0)
         activeMIDINote = noteValue
         notePlaybackToken &+= 1
@@ -115,8 +125,9 @@ final class GuitarNoteEngine {
             self.activeMIDINote = nil
         }
 
-        engine.mainMixerNode.outputVolume = max(0.15, min(velocity, 1.0))
-        let velocityValue = UInt8(max(1, min(Int(velocity * 127.0), 127)))
+        let adjustedVelocity = effectiveVelocity(for: toneConfiguration.preset, requested: velocity)
+        engine.mainMixerNode.outputVolume = max(0.15, min(adjustedVelocity, 1.0))
+        let velocityValue = UInt8(max(1, min(Int(adjustedVelocity * 127.0), 127)))
         let noteValues = clampedNotes.map(UInt8.init)
         for noteValue in noteValues {
             sampler.startNote(noteValue, withVelocity: velocityValue, onChannel: 0)
@@ -124,7 +135,8 @@ final class GuitarNoteEngine {
 
         chordPlaybackToken &+= 1
         let playbackToken = chordPlaybackToken
-        let releaseDelay = noteLength(for: toneConfiguration.preset) * max(sustainMultiplier, 0.1)
+        let effectiveSustain = effectiveSustainMultiplier(for: toneConfiguration.preset, requested: sustainMultiplier)
+        let releaseDelay = noteLength(for: toneConfiguration.preset) * effectiveSustain
         DispatchQueue.main.asyncAfter(deadline: .now() + releaseDelay) { [weak self] in
             guard let self else { return }
             guard self.chordPlaybackToken == playbackToken else { return }
@@ -237,7 +249,26 @@ final class GuitarNoteEngine {
         case .electricClean:
             return 1.6
         case .electricDirty:
-            return 1.8
+            return 1.2
+        }
+    }
+
+    private func effectiveVelocity(for preset: GuitarTonePreset, requested: Float) -> Float {
+        switch preset {
+        case .electricDirty:
+            return min(requested, 0.62)
+        default:
+            return requested
+        }
+    }
+
+    private func effectiveSustainMultiplier(for preset: GuitarTonePreset, requested: Double) -> Double {
+        let clamped = max(requested, 0.1)
+        switch preset {
+        case .electricClean, .electricDirty:
+            return min(clamped, 1.5)
+        case .acoustic:
+            return clamped
         }
     }
 
