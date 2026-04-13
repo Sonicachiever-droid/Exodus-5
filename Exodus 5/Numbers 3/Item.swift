@@ -1,8 +1,8 @@
 //
 //  Item.swift
-//  Numbers 3
+//  Exodus 8
 //
-//  Created by Thomas Kane on 4/5/26.
+//  Created by Thomas Kane on 4/11/26.
 //
 
 import Foundation

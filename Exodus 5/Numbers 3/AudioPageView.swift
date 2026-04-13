@@ -30,6 +30,7 @@ struct AudioPageView: View {
                 }
 
             }
+            #if os(iOS)
             .navigationTitle("Audio")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -39,6 +40,16 @@ struct AudioPageView: View {
                     }
                 }
             }
+            #else
+            .navigationTitle("Audio")
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button("Done") {
+                        onDone()
+                    }
+                }
+            }
+            #endif
         }
     }
 }

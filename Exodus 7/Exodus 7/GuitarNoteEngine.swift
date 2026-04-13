@@ -259,6 +259,7 @@ final class GuitarNoteEngine {
     }
 
     private func configureAudioSession() {
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -266,6 +267,7 @@ final class GuitarNoteEngine {
         } catch {
             print("GuitarNoteEngine: Audio session configuration failed - \(error)")
         }
+        #endif
     }
 
     private func startEngineIfNeeded() {

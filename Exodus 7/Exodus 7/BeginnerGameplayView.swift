@@ -2,267 +2,9 @@ import SwiftUI
 import Combine
 import AVFoundation
 
-enum GameplayMenuOption: String, CaseIterable, Identifiable {
-    case home
-    case learn
-    case phases
-    case audio
-
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .home: return "HOME"
-        case .learn: return "PLAY"
-        case .phases: return "GUIDE"
-        case .audio: return "AUDIO"
-        }
-    }
-}
-
-enum RefretMode: String, CaseIterable, Identifiable {
-    case freestyle
-    case beat
-    case chord
-    case mixed
-    case oneHand
-    case twoHand
-
-    var id: String { rawValue }
-}
-
-private enum GameplayModeVariant {
-    case freestyle
-    case beat
-    case chord
-}
-
-private enum AnswerSide {
-    case left
-    case right
-}
-
-private enum LayoutMode {
-    case beginner
-    case maestro
-}
-
-private enum BeginnerCoursePhase {
-    case round1Ascending
-    case round1Celebration
-    case round2Arming
-    case round2Descending
-    case round2Celebration
-}
-
-private enum BeginnerRoundZeroIntroDisplayPhase {
-    case inactive
-    case centeredRoundZeroChordMode
-    case roundZeroHeader
-    case roundZeroScaleTitle
-    case noteReveal
-}
-
-private struct HighlightWindowShape: InsettableShape {
-    var cornerRadius: CGFloat
-    var insetAmount: CGFloat = 0
-
-    func path(in rect: CGRect) -> Path {
-        let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
-        let radius = max(0, cornerRadius - insetAmount)
-        return RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: insetRect)
-    }
-
-    func inset(by amount: CGFloat) -> some InsettableShape {
-        var copy = self
-        copy.insetAmount += amount
-        return copy
-    }
-}
-
-private enum FretMath {
-    static func fretPositionRatios(totalFrets: Int, scaleLength: Double) -> [CGFloat] {
-        let safeFrets = max(totalFrets, 1)
-        let safeScale = max(scaleLength, 0.001)
-        return (0...safeFrets).map { fret in
-            let distance = safeScale - (safeScale / pow(2.0, Double(fret) / 12.0))
-            return CGFloat(distance / safeScale)
-        }
-    }
-}
-
-private func baselineNutTargetY(highlightTopGridLineY: CGFloat, gridRowHeight: CGFloat) -> CGFloat {
-    highlightTopGridLineY + (gridRowHeight * 2)
-}
-
-private func resolvedNeckTopY(
-    currentFretStart: Int,
-    nutTargetY: CGFloat,
-    highlightCenterY: CGFloat,
-    activeMidpoint: CGFloat
-) -> CGFloat {
-    if currentFretStart == 0 {
-        return nutTargetY
-    }
-    return highlightCenterY - activeMidpoint
-}
-
-private enum GuitarStringLayout {
-    static let totalStrings: Int = 6
-    static let highestStringNumber: Int = 6
-    private static let stratNutWidthInches: CGFloat = 1.650
-    private static let stratStringSpanInches: CGFloat = 1.362
-
-    static func stringCenters(containerWidth: CGFloat, neckWidth: CGFloat) -> [CGFloat] {
-        guard containerWidth > 0, neckWidth > 0 else {
-            return Array(repeating: containerWidth / 2, count: totalStrings)
-        }
-
-        let nutWidth = neckWidth * 0.99
-        let overallPadding = (containerWidth - nutWidth) / 2
-        let widthPerInch = nutWidth / stratNutWidthInches
-        let interStringSpacing = (stratStringSpanInches / CGFloat(totalStrings - 1)) * widthPerInch
-        let edgeMargin = ((stratNutWidthInches - stratStringSpanInches) / 2) * widthPerInch
-
-        return (0..<totalStrings).map { index in
-            overallPadding + edgeMargin + CGFloat(index) * interStringSpacing
-        }
-    }
-}
-
-private struct StringLineOverlay: View {
-    let neckWidth: CGFloat
-    let horizontalPadding: CGFloat
-    let stringTopY: CGFloat
-    private let bottomClearance: CGFloat = 10
-
-    var body: some View {
-        GeometryReader { geo in
-            let clippedTopY = min(max(stringTopY, 0), geo.size.height)
-            let clippedBottomY = max(clippedTopY, geo.size.height - bottomClearance)
-            let clippedHeight = max(clippedBottomY - clippedTopY, 0)
-            let grooveCenters = GuitarStringLayout.stringCenters(containerWidth: geo.size.width, neckWidth: neckWidth)
-
-            ZStack {
-                ForEach(0..<GuitarStringLayout.totalStrings, id: \.self) { index in
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.88, green: 0.88, blue: 0.84),
-                                    Color(red: 0.62, green: 0.62, blue: 0.58),
-                                    Color(red: 0.42, green: 0.42, blue: 0.38)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: index < 3 ? 2.8 - CGFloat(index) * 0.35 : 1.4)
-                        .frame(height: clippedHeight)
-                        .position(x: grooveCenters[index], y: clippedTopY + clippedHeight / 2)
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-private struct MiniTVFrame: View {
-    let text: String
-    let width: CGFloat
-    let height: CGFloat
-    let fontScale: CGFloat
-    var isDarkScreen: Bool = false
-    var glowTint: Color? = nil
-    var hitTestingEnabled: Bool = false
-
-    init(text: String, width: CGFloat, height: CGFloat, fontScale: CGFloat, isDarkScreen: Bool = false, glowTint: Color? = nil, hitTestingEnabled: Bool = false) {
-        self.text = text
-        self.width = width
-        self.height = height
-        self.fontScale = fontScale
-        self.isDarkScreen = isDarkScreen
-        self.glowTint = glowTint
-        self.hitTestingEnabled = hitTestingEnabled
-    }
-
-    var body: some View {
-        let bezelWidth = width + 24
-        let bezelHeight = height + 18
-        let showsAccidental = text.contains("#") || text.contains("b")
-        let useDarkScreen = isDarkScreen || showsAccidental
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.08, green: 0.08, blue: 0.1), Color(red: 0.18, green: 0.18, blue: 0.2)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color.black.opacity(0.6), radius: 8, x: 0, y: 4)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.black.opacity(0.65), lineWidth: 3)
-                .padding(3)
-
-            Group {
-                if useDarkScreen {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.95), Color(red: 0.07, green: 0.07, blue: 0.08), Color.black.opacity(0.95)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .padding(8)
-                } else {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            RadialGradient(
-                                gradient: Gradient(stops: [
-                                    .init(color: Color(white: 1.0, opacity: 0.85), location: 0.0),
-                                    .init(color: Color(red: 1.0, green: 0.96, blue: 0.70), location: 0.08),
-                                    .init(color: Color(red: 1.0, green: 0.78, blue: 0.12), location: 0.28),
-                                    .init(color: Color(red: 1.0, green: 0.56, blue: 0.00), location: 0.40),
-                                    .init(color: Color(red: 0.28, green: 0.12, blue: 0.00), location: 1.0)
-                                ]),
-                                center: .center,
-                                startRadius: 2,
-                                endRadius: 130
-                            )
-                        )
-                        .padding(8)
-                }
-            }
-
-            Text(text.uppercased())
-                .font(.system(size: max(height * 0.78 * fontScale, 14), weight: .black, design: .default))
-                .fontWidth(.condensed)
-                .kerning(0.9)
-                .allowsTightening(true)
-                .foregroundColor(useDarkScreen ? .white : .black)
-                .minimumScaleFactor(0.45)
-                .padding(.horizontal, 12)
-        }
-        .frame(width: bezelWidth, height: bezelHeight)
-        .overlay {
-            if let glowTint {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(glowTint.opacity(0.78), lineWidth: 1.2)
-                    .padding(3)
-                    .shadow(color: glowTint.opacity(0.42), radius: 10)
-            }
-        }
-        .allowsHitTesting(hitTestingEnabled)
-    }
-}
+// MARK: - Types and components from extracted files
+// Types.swift contains: GameplayMenuOption, RefretMode, GameplayModeVariant, AnswerSide, LayoutMode, BeginnerCoursePhase, BeginnerRoundZeroIntroDisplayPhase, HighlightWindowShape, FretMath, GuitarStringLayout, baselineNutTargetY, resolvedNeckTopY
+// ViewComponents.swift contains: StringLineOverlay, MiniTVFrame, ThumbButtonView
 
 private struct WhiteNoteBoxOverlay: View {
     let centerY: CGFloat
@@ -299,6 +41,17 @@ private struct WhiteNoteBoxOverlay: View {
         let boxWidth = min(clampedBoxHeight * 1.8, maxBoxWidthFromSpacing)
         let activeSet = Set(activeStringNumbers)
         return ZStack {
+            // Six individual translucent backgrounds for each answer box
+            ForEach(0..<totalStrings, id: \.self) { index in
+                let stringNumber = totalStrings - index
+                let isActive = activeSet.contains(stringNumber)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.black.opacity(0.42))
+                    .frame(width: boxWidth, height: clampedBoxHeight)
+                    .opacity(isActive ? 1 : 0.0001)
+                    .position(x: grooveCenters[index], y: centerY)
+            }
+
             ForEach(0..<totalStrings, id: \.self) { index in
                 let stringNumber = totalStrings - index
                 let isActive = activeSet.contains(stringNumber)
@@ -333,20 +86,6 @@ private struct WhiteNoteBoxOverlay: View {
                         return shouldUseAccidentalStyle ? Color.white.opacity(0.86) : Color.black.opacity(0.72)
                     }
                 }()
-                let auraColor: Color = {
-                    guard isActive else { return .clear }
-                    switch answerFeedback {
-                    case .green:
-                        return Color(red: 0.38, green: 0.92, blue: 0.45).opacity(0.35)
-                    case .red:
-                        return Color(red: 0.92, green: 0.28, blue: 0.20).opacity(0.35)
-                    default:
-                        if blinkingActive {
-                            return blinkOrange ? Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35) : Color.white.opacity(0.35)
-                        }
-                        return shouldUseAccidentalStyle ? Color.black.opacity(0.22) : Color.white.opacity(0.38)
-                    }
-                }()
 
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(fillColor)
@@ -354,8 +93,6 @@ private struct WhiteNoteBoxOverlay: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(strokeColor, lineWidth: 2)
                     )
-                    .shadow(color: auraColor, radius: 4)
-                    .shadow(color: auraColor.opacity(0.55), radius: 8)
                     .frame(width: boxWidth, height: clampedBoxHeight)
                     .overlay {
                         if isActive, let displayedNoteText, !displayedNoteText.isEmpty {
@@ -364,7 +101,6 @@ private struct WhiteNoteBoxOverlay: View {
                                 .minimumScaleFactor(0.32)
                                 .lineLimit(1)
                                 .foregroundStyle(shouldUseAccidentalStyle ? Color.white.opacity(0.96) : revealedNoteTextColor)
-                                .shadow(color: Color.black.opacity(0.55), radius: 2)
                                 .padding(.horizontal, 1)
                         }
                     }
@@ -680,224 +416,6 @@ private struct FullScreenElephantBackground: View {
                 .overlay(Color.black.opacity(0.18))
                 .offset(x: -bleed, y: -bleed)
         }
-    }
-}
-
-// Thumb button glow states
-private enum ThumbGlowState: CaseIterable {
-    case neutral
-    case orange
-    case green
-    case red
-}
-
-// LED-style thumb button matching the exhibit styling
-private struct ThumbButtonView: View {
-    let diameter: CGFloat
-    let label: String
-    let state: ThumbGlowState
-
-    private var glowStops: [Gradient.Stop] {
-        switch state {
-        case .neutral:
-            return [
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.0),
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.12),
-                .init(color: Color(red: 1.0, green: 0.96, blue: 0.70), location: 0.34),
-                .init(color: Color(red: 1.0, green: 0.78, blue: 0.12), location: 0.54),
-                .init(color: Color(red: 0.28, green: 0.12, blue: 0.00), location: 1.0)
-            ]
-        case .orange:
-            return [
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.0),
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.12),
-                .init(color: Color(red: 1.0, green: 0.84, blue: 0.38), location: 0.34),
-                .init(color: Color(red: 1.0, green: 0.58, blue: 0.04), location: 0.54),
-                .init(color: Color(red: 0.42, green: 0.17, blue: 0.00), location: 1.0)
-            ]
-        case .green:
-            return [
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.0),
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.12),
-                .init(color: Color(red: 0.66, green: 1.0, blue: 0.72), location: 0.34),
-                .init(color: Color(red: 0.12, green: 0.84, blue: 0.22), location: 0.54),
-                .init(color: Color(red: 0.0, green: 0.32, blue: 0.08), location: 1.0)
-            ]
-        case .red:
-            return [
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.0),
-                .init(color: Color(white: 1.0, opacity: 1.0), location: 0.12),
-                .init(color: Color(red: 1.0, green: 0.58, blue: 0.46), location: 0.34),
-                .init(color: Color(red: 0.82, green: 0.14, blue: 0.07), location: 0.54),
-                .init(color: Color(red: 0.34, green: 0.01, blue: 0.01), location: 1.0)
-            ]
-        }
-    }
-
-    var body: some View {
-        let bezel = diameter
-        let ringOuter = diameter * 0.84
-        let ringInner = diameter * 0.78
-        let plunger = diameter * 0.50
-        let screwOrbit = diameter * 0.39
-        let screwSize = max(diameter * 0.085, 7)
-
-        VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.98, green: 0.9, blue: 0.66),
-                                Color(red: 0.90, green: 0.74, blue: 0.40),
-                                Color(red: 0.73, green: 0.55, blue: 0.26),
-                                Color(red: 0.94, green: 0.82, blue: 0.53)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.45), Color.black.opacity(0.45)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.4
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.45), radius: 8, x: 0, y: 4)
-                    .frame(width: bezel, height: bezel)
-
-                Circle()
-                    .stroke(
-                        AngularGradient(
-                            gradient: Gradient(colors: ringMetalStops),
-                            center: .center
-                        ),
-                        lineWidth: max(diameter * 0.085, 6)
-                    )
-                    .frame(width: ringOuter, height: ringOuter)
-
-                Circle()
-                    .stroke(
-                        RadialGradient(
-                            gradient: Gradient(stops: glowStops),
-                            center: .center,
-                            startRadius: ringInner * 0.02,
-                            endRadius: ringInner * 0.65
-                        )
-                        .opacity(1.0),
-                        lineWidth: max(diameter * 0.165, 12)
-                    )
-                    .frame(width: ringInner, height: ringInner)
-                    .shadow(color: .white.opacity(0.62), radius: 6)
-                    .shadow(color: ringShadowColor.opacity(0.95), radius: 16)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.75), lineWidth: max(diameter * 0.02, 1.6))
-                            .frame(width: ringInner * 0.88, height: ringInner * 0.88)
-                            .blur(radius: 0.25)
-                    )
-
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 0.98, green: 0.9, blue: 0.66),
-                                Color(red: 0.90, green: 0.74, blue: 0.40),
-                                Color(red: 0.73, green: 0.55, blue: 0.26)
-                            ],
-                            center: UnitPoint(x: 0.35, y: 0.3),
-                            startRadius: plunger * 0.03,
-                            endRadius: plunger * 0.55
-                        )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.40), Color.black.opacity(0.35)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .fill(Color.white.opacity(0.22))
-                            .frame(width: plunger * 0.23, height: plunger * 0.16)
-                            .offset(x: -plunger * 0.16, y: -plunger * 0.14)
-                            .blur(radius: 0.3)
-                    )
-                    .frame(width: plunger, height: plunger)
-
-                ForEach(0..<4, id: \.self) { index in
-                    let angle = Angle.degrees(Double(index) * 90 + 45)
-                    ScrewHeadView(size: screwSize)
-                        .offset(
-                            x: cos(angle.radians) * screwOrbit,
-                            y: sin(angle.radians) * screwOrbit
-                        )
-                }
-            }
-
-            Text(label.uppercased())
-                .font(.system(size: max(diameter * 0.16, 10), weight: .semibold))
-                .fontWidth(.condensed)
-                .kerning(0.9)
-                .foregroundColor(.white)
-        }
-    }
-
-    private var ringShadowColor: Color {
-        switch state {
-        case .neutral: return Color(red: 1.0, green: 0.62, blue: 0.05)
-        case .orange: return Color(red: 1.0, green: 0.52, blue: 0.02)
-        case .green: return Color(red: 0.2, green: 0.9, blue: 0.3)
-        case .red: return Color(red: 1.0, green: 0.2, blue: 0.1)
-        }
-    }
-
-    private var ringMetalStops: [Color] {
-        [
-            Color(red: 0.98, green: 0.9, blue: 0.66),
-            Color(red: 0.90, green: 0.74, blue: 0.40),
-            Color(red: 0.73, green: 0.55, blue: 0.26),
-            Color(red: 0.94, green: 0.82, blue: 0.53),
-            Color(red: 0.98, green: 0.9, blue: 0.66)
-        ]
-    }
-}
-
-private struct ScrewHeadView: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(red: 0.72, green: 0.63, blue: 0.44),
-                            Color(red: 0.38, green: 0.31, blue: 0.18)
-                        ],
-                        center: UnitPoint(x: 0.3, y: 0.25),
-                        startRadius: size * 0.05,
-                        endRadius: size * 0.7
-                    )
-                )
-            Circle()
-                .stroke(Color.black.opacity(0.35), lineWidth: 0.6)
-            Rectangle()
-                .fill(Color.black.opacity(0.45))
-                .frame(width: size * 0.55, height: 0.8)
-                .rotationEffect(.degrees(-12))
-        }
-        .frame(width: size, height: size)
     }
 }
 
@@ -1302,8 +820,6 @@ private struct DeveloperConsoleFrame: View {
                                     ZStack {
                                         VStack(spacing: 14) {
                                             HStack(alignment: .top) {
-                                                let statusLines = beginnerRoundStatusText?.components(separatedBy: "\n") ?? []
-                                                let progressLine = statusLines.indices.contains(2) ? statusLines[2] : ""
                                                 let progressFontSize = adaptiveProgressFontSize(for: scaleRepetitionText)
 
                                                 VStack(alignment: .leading, spacing: 2) {
@@ -1490,7 +1006,7 @@ private struct DeveloperTVStreakMeterView: View {
     }
 }
 
-struct ContentView: View {
+struct BeginnerGameplayView: View {
     let onMenuSelection: ((GameplayMenuOption) -> Void)?
     let selectedMode: RefretMode
     let selectedPhase: Int
@@ -1508,7 +1024,7 @@ struct ContentView: View {
 
     @State private var audioSettings = AudioSettings()
     @State private var showAudioPage: Bool = false
-    @State private var layoutMode: LayoutMode? = nil
+    private let layoutMode: LayoutMode = .beginner
 
     @Environment(\.displayScale) private var displayScale
     private let totalFrets: Int = 20
@@ -1576,7 +1092,7 @@ struct ContentView: View {
             case .oneHand:
                 return [1, 2, 3, 4]
             default:
-                return [1, 2, 3, 4, 5]
+                return [1, 2, 3, 4, 5, 6]
             }
         }()
 
@@ -1750,6 +1266,8 @@ struct ContentView: View {
         var randomSequenceProgressIndex: Int = 0
         var randomRevealCount: Int = 0
         var randomRevealStartBeatBucket: Int? = nil
+        // Round shift delay state
+        var pendingRoundShiftBeatPosition: Double? = nil
     }
 
     private struct BeginnerRewardPolicyKey: Hashable {
@@ -2273,11 +1791,6 @@ struct ContentView: View {
                 case .armed: return .green
                 }
             }()
-            let beginnerButtonState: ThumbGlowState = {
-                guard layoutMode == .beginner else { return .neutral }
-                guard startupSequenceActivated, startupState.phase == .armed, startupState.isVisible else { return .neutral }
-                return .green
-            }()
             let effectiveLeftThumbState = isCodeScreensaverMode ? screensaverThumbState : leftThumbState
             let effectiveRightThumbState = isCodeScreensaverMode ? screensaverThumbState : rightThumbState
             let initialGameplayDimOpacity: CGFloat = (isCodeScreensaverMode && !startupSequenceActivated) ? 0.42 : 1.0
@@ -2391,10 +1904,13 @@ struct ContentView: View {
                     let guideTileWidth = max(minGuideSpacing * 0.82, 18)
                     let guideTileHeight = guideBoxHeight * 0.86
                     ZStack {
-                        RoundedRectangle(cornerRadius: guideBoxCornerRadius, style: .continuous)
-                            .fill(Color.black.opacity(0.42))
-                            .frame(width: guideBoxWidth, height: guideBoxHeight)
-                            .position(x: proxy.size.width / 2, y: guideBoxCenterY)
+                        // Six individual translucent backgrounds matching each note box
+                        ForEach(Array(fretboardStrings.enumerated()), id: \.offset) { index, _ in
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.black.opacity(0.42))
+                                .frame(width: guideTileWidth, height: guideTileHeight)
+                                .position(x: stringCenters[index], y: guideBoxCenterY)
+                        }
 
                         ForEach(Array(fretboardStrings.enumerated()), id: \.offset) { index, stringNumber in
                             let note = noteName(forString: stringNumber, fret: max(currentRound, 0), useFlats: beginnerUsesFlats)
@@ -2575,7 +2091,7 @@ struct ContentView: View {
                     }
                 )
                     .frame(maxWidth: min((proxy.size.width - 24) * 0.88, 370))
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 12)
                     .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay(alignment: .topLeading) {
@@ -2656,7 +2172,7 @@ struct ContentView: View {
                                 text: buttonNote,
                                 width: beginnerScreenWidth,
                                 height: beginnerScreenHeight,
-                                fontScale: 0.78
+                                fontScale: 1.0
                             )
                             .position(x: leftScreenX, y: rowYs[idx] + noteScreenCenterYOffset)
 
@@ -2687,7 +2203,7 @@ struct ContentView: View {
                                 text: buttonNote,
                                 width: beginnerScreenWidth,
                                 height: beginnerScreenHeight,
-                                fontScale: 0.78
+                                fontScale: 1.0
                             )
                             .position(x: rightScreenX, y: rowYs[idx] + noteScreenCenterYOffset)
 
@@ -2798,50 +2314,6 @@ struct ContentView: View {
             .overlay {
                 EmptyView()
             }
-            .overlay {
-                if layoutMode == nil {
-                    ZStack {
-                        Color.black.opacity(0.6)
-                            .ignoresSafeArea()
-                        VStack(spacing: 20) {
-                            Text("Choose Console")
-                                .font(.title2).bold()
-                                .foregroundColor(.white)
-                            VStack(spacing: 12) {
-                                Button {
-                                    layoutMode = .beginner
-                                } label: {
-                                    Text("Beginner Console")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.blue.opacity(0.9))
-                                        .cornerRadius(12)
-                                }
-                                Button {
-                                    layoutMode = .maestro
-                                    isCodeScreensaverMode = false
-                                } label: {
-                                    Text("Maestro Console")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.gray.opacity(0.9))
-                                        .cornerRadius(12)
-                                }
-                            }
-                            .frame(maxWidth: 320)
-                        }
-                        .padding(24)
-                        .background(Color.black.opacity(0.5))
-                        .cornerRadius(16)
-                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 6)
-                    }
-                    .allowsHitTesting(true)
-                }
-            }
             .onAppear(perform: handleContentOnAppear)
             .sheet(isPresented: $showAudioPage) {
                 AudioPageView(
@@ -2855,8 +2327,8 @@ struct ContentView: View {
             .onChange(of: showAudioPage) { _, isPresented in
                 if isPresented {
                     syncBackingTrackPlayback()
-                } else if !backingTrackShouldPlayInGameplay {
-                    syncBackingTrackPlayback()
+                } else {
+                    syncBackingTrackPlayback(allowResumeFromPause: true)
                 }
             }
             .onChange(of: audioSettings.guitarTonePreset) { _, newValue in
@@ -2895,17 +2367,6 @@ struct ContentView: View {
             }
             .onChange(of: beginnerRuntime.scaleCycleSemitoneOffset) { _, _ in
                 applyBeginnerBassTransposeForCurrentStage()
-            }
-            .onChange(of: layoutMode) { _, mode in
-                if mode == .beginner {
-                    beginnerRuntime.coursePhase = .round1Ascending
-                    isRoundArmed = true
-                    isRoundPaused = false
-                    roundRevealElapsedBeats = 0
-                    roundRevealLastTickDate = nil
-                }
-                updateDirectionLockState()
-                syncBackingTrackPlayback()
             }
             .onChange(of: isCodeScreensaverMode) { _, isScreensaverMode in
                 updateDirectionLockState()
@@ -3045,6 +2506,7 @@ struct ContentView: View {
         }
 
         handlePendingBeginnerRewardPlaybackIfNeeded()
+        handlePendingRoundShiftIfNeeded()
         ensureBeginnerRoundOneRevealSequenceStarted(currentDate: date)
         updateBeginnerRoundOneRevealSequence(currentDate: date)
         updateRandomModeRevealProgressionIfNeeded()
@@ -3406,6 +2868,51 @@ struct ContentView: View {
         }
     }
 
+    private func handlePendingRoundShiftIfNeeded() {
+        guard playLessonStyle == "random",
+              let targetBeatPosition = beginnerRuntime.pendingRoundShiftBeatPosition else { return }
+
+        let currentBeatPosition = roundRevealElapsedBeats
+        guard currentBeatPosition >= targetBeatPosition else { return }
+
+        // 2-beat delay has passed - clear the pending shift and execute
+        beginnerRuntime.pendingRoundShiftBeatPosition = nil
+
+        // Clear white note box immediately before shift
+        beginnerRuntime.lastPickedNote = nil
+        beginnerRuntime.rewardNoteTextByString = nil
+        beginnerRuntime.answerBoxReady = false
+
+        // Reset random mode state for new fret
+        beginnerRuntime.scaleRepetitionsRemaining = effectivePlayRepetitions
+        randomNoteGenerator.resetForNewFret()
+        beginnerRuntime.randomRevealCount = 0
+        beginnerRuntime.randomRevealStartBeatBucket = nil
+
+        // Advance to next fret (or celebrate if at boundary)
+        if !isPhaseDescending {
+            if currentRound < beginnerUpperFretBoundary {
+                currentRound += 1
+            } else {
+                beginBeginnerRoundOneCelebration()
+                return
+            }
+        } else {
+            if currentRound > beginnerLowerFretBoundary {
+                currentRound -= 1
+            } else {
+                beginBeginnerRoundOneCelebration()
+                return
+            }
+        }
+
+        // Generate new sequence for new fret and apply bass transpose
+        let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
+        randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
+        applyBeginnerBassTransposeForCurrentStage()
+        prepareCurrentQuestion()
+    }
+
     private func advanceBeginnerScaleStage(afterCompletionFromString selectedString: Int, playTransitionNote: Bool = true) {
         let completedStageWasCycleEnd = beginnerCurrentScaleStage.endsCycle
         beginnerRuntime.rewardNoteTextByString = nil
@@ -3580,53 +3087,86 @@ struct ContentView: View {
     private func handleBeginnerAutoPlayIfNeeded(currentDate: Date) {
         guard layoutMode == .beginner,
               beginnerRuntime.autoPlayEnabled,
-              beginnerRuntime.coursePhase == .round1Ascending,
               !isCodeScreensaverMode,
               !startupSequenceActivated,
               !isResolvingAnswer,
-              !beginnerRuntime.pendingRewardStageAdvance
+              !beginnerRuntime.pendingRewardStageAdvance,
+              beginnerRuntime.pendingRoundShiftBeatPosition == nil
         else {
-            if layoutMode != .beginner || !beginnerRuntime.autoPlayEnabled || beginnerRuntime.coursePhase != .round1Ascending {
+            if layoutMode != .beginner || !beginnerRuntime.autoPlayEnabled {
                 beginnerRuntime.autoPlayNextDate = nil
             }
             return
         }
 
-        guard !beginnerRuntime.roundOneIntroActive,
-              beginnerRuntime.pentatonicRevealCount >= beginnerCurrentScaleNotes.count,
-              !beginnerCurrentScaleNotes.isEmpty
-        else {
-            beginnerRuntime.autoPlayNextDate = nil
-            return
-        }
-
-        if beginnerRuntime.autoPlayNextDate == nil {
-            beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
-            return
-        }
-
-        guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
-
-        let safeSequenceIndex = min(max(beginnerRuntime.scaleSequenceIndex, 0), beginnerCurrentScaleNotes.count - 1)
-        if safeSequenceIndex != beginnerRuntime.scaleSequenceIndex {
-            beginnerRuntime.scaleSequenceIndex = safeSequenceIndex
-        }
-        let expectedNote = beginnerCurrentScaleNotes[safeSequenceIndex]
         let fret = max(currentRound, 0)
-        let preferredStringOrder = beginnerAutoPlayPreferredStringOrder(for: expectedNote)
-        let matchedString = preferredStringOrder.first {
-            noteName(forString: $0, fret: fret, useFlats: false) == expectedNote
-        } ?? preferredStringOrder.first {
-            noteName(forString: $0, fret: fret, useFlats: beginnerUsesFlats) == expectedNote
-        }
 
-        guard let selectedString = matchedString else {
+        if playLessonStyle == "random" {
+            guard beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            guard beginnerRuntime.randomRevealCount >= 6 else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            guard !randomNoteGenerator.isSequenceComplete() else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            guard let nextString = randomNoteGenerator.expectedString,
+                  let nextNote = randomNoteGenerator.currentNoteSequence.indices.contains(randomNoteGenerator.sequenceProgressIndex)
+                    ? Optional(randomNoteGenerator.currentNoteSequence[randomNoteGenerator.sequenceProgressIndex])
+                    : nil
+            else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            // Use the exact string the sequence demands — no guessing
+            if beginnerRuntime.autoPlayNextDate == nil {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
+            let buttonIndex = 6 - nextString
+            handleBeginnerConsoleButtonPress(selectedNote: nextNote, selectedString: nextString, buttonIndex: buttonIndex)
             beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
             return
-        }
+        } else {
+            // Chord style: existing behavior
+            guard beginnerRuntime.coursePhase == .round1Ascending,
+                  !beginnerRuntime.roundOneIntroActive,
+                  beginnerRuntime.pentatonicRevealCount >= beginnerCurrentScaleNotes.count,
+                  !beginnerCurrentScaleNotes.isEmpty
+            else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            let safeSequenceIndex = min(max(beginnerRuntime.scaleSequenceIndex, 0), beginnerCurrentScaleNotes.count - 1)
+            if safeSequenceIndex != beginnerRuntime.scaleSequenceIndex {
+                beginnerRuntime.scaleSequenceIndex = safeSequenceIndex
+            }
+            let expectedNote = beginnerCurrentScaleNotes[safeSequenceIndex]
 
-        handleBeginnerConsoleButtonPress(selectedNote: expectedNote, selectedString: selectedString)
-        beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+            if beginnerRuntime.autoPlayNextDate == nil {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
+            let preferredStringOrder = beginnerAutoPlayPreferredStringOrder(for: expectedNote)
+            let matchedString = preferredStringOrder.first {
+                noteName(forString: $0, fret: fret, useFlats: false) == expectedNote
+            } ?? preferredStringOrder.first {
+                noteName(forString: $0, fret: fret, useFlats: beginnerUsesFlats) == expectedNote
+            }
+            guard let selectedString = matchedString else {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            let buttonIndex = 6 - selectedString
+            handleBeginnerConsoleButtonPress(selectedNote: expectedNote, selectedString: selectedString, buttonIndex: buttonIndex)
+            beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+        }
     }
 
     private func beginnerAutoPlayPreferredStringOrder(for expectedNote: String) -> [Int] {
@@ -3829,13 +3369,13 @@ struct ContentView: View {
     private func prepareCurrentQuestion() {
     if playLessonStyle == "random" {
         // Random style: use note sequence from generator
-        guard let nextNote = randomNoteGenerator.getNextNote(currentFret: max(currentRound, 0)) else { return }
-        let fret = max(currentRound, 0)
+        let idx = randomNoteGenerator.sequenceProgressIndex
+        guard idx < randomNoteGenerator.currentNoteSequence.count,
+              let nextString = randomNoteGenerator.expectedString else { return }
+        let correctNote = randomNoteGenerator.currentNoteSequence[idx]
         let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-        let correctNote = nextNote
         let incorrectNote = randomIncorrectNote(excluding: correctNote, useFlats: useFlats)
         let correctOnLeft = Bool.random()
-        
         if correctOnLeft {
             leftChoiceNote = correctNote
             rightChoiceNote = incorrectNote
@@ -3843,11 +3383,13 @@ struct ContentView: View {
             leftChoiceNote = incorrectNote
             rightChoiceNote = correctNote
         }
-        
-        currentPromptStrings = [6] // Always use string 6 for Random style
+        currentPromptStrings = [nextString]
         lastPromptedCorrectNote = correctNote
         lastPromptedStringHalf = .left
-        lastPromptedStringNumber = 6
+        lastPromptedStringNumber = nextString
+        withAnimation(.easeInOut(duration: 1.3)) {
+            currentFretStart = max(currentRound, 0)
+        }
     } else {
         // Chord style: existing behavior
         let fret = max(currentRound, 0)
@@ -4003,66 +3545,34 @@ struct ContentView: View {
         // Random style: check against random note sequence
         if playLessonStyle == "random" {
             guard beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending else { return }
+            guard !randomNoteGenerator.currentNoteSequence.isEmpty else { return }
+            guard !randomNoteGenerator.isSequenceComplete() else { return }
 
-            let sequence = randomNoteGenerator.currentNoteSequence
-            guard !sequence.isEmpty else { return }
+            // Validate: note must match AND must not reuse an already-played string for that note
+            guard randomNoteGenerator.isValidAnswer(note: selectedNote, string: selectedString) else { return }
 
-            let currentIndex = randomNoteGenerator.sequenceProgressIndex
-            guard currentIndex < sequence.count else { return }
+            // Correct answer - light up the button
+            beginnerPressedButtonIndex = buttonIndex
+            beginnerPressedButtonCorrect = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                beginnerPressedButtonIndex = nil
+                beginnerPressedButtonCorrect = false
+            }
+            randomNoteGenerator.advanceSequence()
 
-            let expectedNote = sequence[currentIndex]
-
-            if selectedNote == expectedNote {
-                // Correct answer - light up the button
-                beginnerPressedButtonIndex = buttonIndex
-                beginnerPressedButtonCorrect = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                    beginnerPressedButtonIndex = nil
-                    beginnerPressedButtonCorrect = false
-                }
-                // Correct answer - advance in sequence
-                randomNoteGenerator.sequenceProgressIndex += 1
-
-                // Check if sequence is complete
-                if randomNoteGenerator.isSequenceComplete() {
-                    // All 6 notes completed - check repetitions
-                    if beginnerRuntime.scaleRepetitionsRemaining <= 1 {
-                        // Move to next fret
-                        beginnerRuntime.scaleRepetitionsRemaining = effectivePlayRepetitions
-                        randomNoteGenerator.resetForNewFret()
-                        beginnerRuntime.randomRevealCount = 0
-                        beginnerRuntime.randomRevealStartBeatBucket = nil
-                        beginnerRuntime.answerBoxReady = false
-
-                        if !isPhaseDescending {
-                            if currentRound < beginnerUpperFretBoundary {
-                                currentRound += 1
-                            } else {
-                                beginBeginnerRoundOneCelebration()
-                                return
-                            }
-                        } else {
-                            if currentRound > beginnerLowerFretBoundary {
-                                currentRound -= 1
-                            } else {
-                                beginBeginnerRoundOneCelebration()
-                                return
-                            }
-                        }
-
-                        // Generate new sequence for new fret
-                        let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-                        randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
-                    } else {
-                        // Another repetition - reset sequence and shuffle
-                        beginnerRuntime.scaleRepetitionsRemaining -= 1
-                        randomNoteGenerator.resetForNewFret()
-                        beginnerRuntime.randomRevealCount = 0
-                        beginnerRuntime.randomRevealStartBeatBucket = nil
-                        beginnerRuntime.answerBoxReady = false
-                        let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-                        randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
+            if randomNoteGenerator.isSequenceComplete() {
+                if beginnerRuntime.scaleRepetitionsRemaining <= 1 {
+                    if beginnerRuntime.pendingRoundShiftBeatPosition == nil {
+                        beginnerRuntime.pendingRoundShiftBeatPosition = roundRevealElapsedBeats + 2.0
                     }
+                } else {
+                    beginnerRuntime.scaleRepetitionsRemaining -= 1
+                    randomNoteGenerator.resetForNewFret()
+                    beginnerRuntime.randomRevealCount = 0
+                    beginnerRuntime.randomRevealStartBeatBucket = nil
+                    beginnerRuntime.answerBoxReady = false
+                    let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
+                    randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
                 }
             }
             return
@@ -4134,7 +3644,7 @@ struct ContentView: View {
         guitarNoteEngine.play(string: stringNumber, fret: max(fret, 0), velocity: velocity)
     }
 
-    private func syncBackingTrackPlayback() {
+    private func syncBackingTrackPlayback(allowResumeFromPause: Bool = false) {
         guard !availableBackingTracks.isEmpty else {
             midiEngine.stop()
             isBackingTrackPlaying = false
@@ -4162,6 +3672,14 @@ struct ContentView: View {
         }
 
         applyBeginnerBassTransposeForCurrentStage()
+        
+        // If allowed and same track was paused, resume from that position
+        if allowResumeFromPause {
+            midiEngine.resume()
+            isBackingTrackPlaying = midiEngine.isPlaying
+            return
+        }
+        
         midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
         isBackingTrackPlaying = midiEngine.isPlaying
     }
@@ -4269,7 +3787,6 @@ struct ContentView: View {
         isRoundPaused = false
         roundRevealLastTickDate = nil
         midiEngine.resume()
-        isBackingTrackPlaying = midiEngine.isPlaying
         beginnerRuntime.beatLightFlashOn = false
         beginnerRuntime.beatLightLastProcessedBeat = nil
         beginnerRuntime.beatLightIntroMeasureSkipped = false
@@ -4414,7 +3931,7 @@ private struct PurpleGuidelineLayer: View {
     }
 }
 
-private extension ContentView {
+private extension BeginnerGameplayView {
     func debugGridOverlay(size: CGSize, columns: Int, rows: Int) -> some View {
         let cellWidth = size.width / CGFloat(columns)
         let cellHeight = size.height / CGFloat(rows)
@@ -4854,7 +4371,7 @@ private struct DeveloperButtonStack: View {
 }
 
 #Preview {
-    ContentView()
+    BeginnerGameplayView()
 }
 
 private struct ProjectLinebackerOverlay: View {

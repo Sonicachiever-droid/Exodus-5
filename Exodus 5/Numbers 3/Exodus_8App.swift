@@ -1,16 +1,17 @@
 //
-//  Numbers_3App.swift
-//  Numbers 3
+//  Exodus_8App.swift
+//  Exodus 8
 //
-//  Created by Thomas Kane on 4/5/26.
+//  Created by Thomas Kane on 4/11/26.
 //
 
 import SwiftUI
 import SwiftData
 
 @main
-struct Numbers_3App: App {
+struct Exodus_8App: App {
     @State private var selectedMenuOption: GameplayMenuOption?
+    @State private var layoutMode: LayoutMode? = nil
     @AppStorage("numbers3.progress.walletPoints") private var walletPoints: Int = 0
     @AppStorage("numbers3.progress.balancePoints") private var balancePoints: Int = 0
     @AppStorage("numbers3.setup.startingFret") private var startingFret: Int = 0
@@ -18,33 +19,16 @@ struct Numbers_3App: App {
     @AppStorage("numbers3.setup.direction") private var directionRawValue: String = LessonDirection.ascending.rawValue
     @AppStorage("numbers3.setup.enableHighFrets") private var enableHighFrets: Bool = false
     @AppStorage("numbers3.setup.lessonStyle") private var lessonStyleRawValue: String = "chord"
-    @AppStorage("numbers3.migration.repetitionsV5Applied") private var repetitionsV5MigrationApplied: Bool = false
-    @AppStorage("numbers3.migration.startingFretDefaultApplied") private var startingFretDefaultApplied: Bool = false
-    @AppStorage("numbers3.migration.playSetupCanonicalV2Applied") private var playSetupCanonicalV2Applied: Bool = false
-    @AppStorage("numbers3.migration.lessonStyleResetToChordV2Applied") private var lessonStyleResetToChordV2Applied: Bool = false
+    @AppStorage("numbers3.setup.selectedMode") private var selectedModeRawValue: String = "beginner"
 
     init() {
-        if !repetitionsV5MigrationApplied {
-            repetitions = 5
-            repetitionsV5MigrationApplied = true
-        }
-        if !startingFretDefaultApplied {
-            startingFret = 0
-            startingFretDefaultApplied = true
-        }
         if LessonDirection(rawValue: directionRawValue) == nil {
             directionRawValue = LessonDirection.ascending.rawValue
         }
-        if !playSetupCanonicalV2Applied {
-            startingFret = 0
-            repetitions = 5
-            directionRawValue = LessonDirection.ascending.rawValue
-            playSetupCanonicalV2Applied = true
-        }
-        // Force reset lesson style to chord (fixes v1.0 random default bug)
-        if !lessonStyleResetToChordV2Applied {
-            lessonStyleRawValue = "chord"
-            lessonStyleResetToChordV2Applied = true
+        if selectedModeRawValue == "beginner" {
+            layoutMode = .beginner
+        } else if selectedModeRawValue == "maestro" {
+            layoutMode = .maestro
         }
     }
 
@@ -63,20 +47,86 @@ struct Numbers_3App: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(
-                onMenuSelection: { option in
-                    selectedMenuOption = option
-                },
-                playStartingFret: $startingFret,
-                playRepetitions: $repetitions,
-                playDirectionRawValue: $directionRawValue,
-                playEnableHighFrets: $enableHighFrets,
-                playLessonStyle: $lessonStyleRawValue,
-                walletDollars: $walletPoints,
-                balanceDollars: $balancePoints
-            )
+            Group {
+                if let mode = layoutMode {
+                    switch mode {
+                    case .beginner:
+                        BeginnerGameplayView(
+                            onMenuSelection: { option in
+                                selectedMenuOption = option
+                            },
+                            playStartingFret: $startingFret,
+                            playRepetitions: $repetitions,
+                            playDirectionRawValue: $directionRawValue,
+                            playEnableHighFrets: $enableHighFrets,
+                            playLessonStyle: $lessonStyleRawValue,
+                            walletDollars: $walletPoints,
+                            balanceDollars: $balancePoints
+                        )
+                    case .maestro:
+                        MaestroGameplayView(
+                            onMenuSelection: { option in
+                                selectedMenuOption = option
+                            },
+                            playStartingFret: $startingFret,
+                            playRepetitions: $repetitions,
+                            playDirectionRawValue: $directionRawValue,
+                            playEnableHighFrets: $enableHighFrets,
+                            playLessonStyle: $lessonStyleRawValue,
+                            walletDollars: $walletPoints,
+                            balanceDollars: $balancePoints
+                        )
+                    }
+                } else {
+                    ZStack {
+                        Color.black.opacity(0.6)
+                            .ignoresSafeArea()
+                        VStack(spacing: 20) {
+                            Text("Choose Console")
+                                .font(.title2).bold()
+                                .foregroundColor(.white)
+                            VStack(spacing: 12) {
+                                Button {
+                                    layoutMode = .beginner
+                                } label: {
+                                    Text("Beginner Console")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue.opacity(0.9))
+                                        .cornerRadius(12)
+                                }
+                                Button {
+                                    layoutMode = .maestro
+                                } label: {
+                                    Text("Maestro Console")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.gray.opacity(0.9))
+                                        .cornerRadius(12)
+                                }
+                            }
+                            .frame(maxWidth: 320)
+                        }
+                        .padding(24)
+                        .background(Color.black.opacity(0.5))
+                        .cornerRadius(16)
+                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 6)
+                    }
+                }
+            }
+            .onChange(of: layoutMode) { _, newMode in
+                if newMode == .beginner {
+                    selectedModeRawValue = "beginner"
+                } else if newMode == .maestro {
+                    selectedModeRawValue = "maestro"
+                }
+            }
             .sheet(item: $selectedMenuOption) { option in
-                Numbers3MenuSheet(
+                Exodus8MenuSheet(
                     option: option,
                     walletPoints: $walletPoints,
                     balancePoints: $balancePoints,
@@ -84,7 +134,8 @@ struct Numbers_3App: App {
                     repetitions: $repetitions,
                     directionRawValue: $directionRawValue,
                     enableHighFrets: $enableHighFrets,
-                    lessonStyleRawValue: $lessonStyleRawValue
+                    lessonStyleRawValue: $lessonStyleRawValue,
+                    layoutMode: $layoutMode
                 )
             }
         }
@@ -92,7 +143,7 @@ struct Numbers_3App: App {
     }
 }
 
-private struct Numbers3MenuSheet: View {
+private struct Exodus8MenuSheet: View {
     let option: GameplayMenuOption
     @Binding var walletPoints: Int
     @Binding var balancePoints: Int
@@ -101,6 +152,7 @@ private struct Numbers3MenuSheet: View {
     @Binding var directionRawValue: String
     @Binding var enableHighFrets: Bool
     @Binding var lessonStyleRawValue: String
+    @Binding var layoutMode: LayoutMode?
     @AppStorage("numbers3.runtime.directionLockActive") private var directionLockActive: Bool = false
     @Environment(\.dismiss) private var dismiss
 
@@ -119,17 +171,17 @@ private struct Numbers3MenuSheet: View {
                             Text("Random").tag("random")
                             Text("Chord").tag("chord")
                         }
-                        
+
                         Stepper("Repetitions: \(repetitions)", value: $repetitions, in: 1...8)
-                        
+
                         Stepper("Starting Fret: \(startingFret)", value: $startingFret, in: 0...(enableHighFrets ? 19 : 12))
-                        
+
                         Picker("Direction", selection: $directionRawValue) {
                             Text("Phase 1 (Ascending)").tag(LessonDirection.ascending.rawValue)
                             Text("Phase 2 (Descending)").tag(LessonDirection.descending.rawValue)
                         }
                         .disabled(directionLockActive)
-                        
+
                         Toggle("Enable High Frets (12+)", isOn: $enableHighFrets)
                     }
                     .onChange(of: enableHighFrets) { _, isEnabled in
@@ -137,10 +189,24 @@ private struct Numbers3MenuSheet: View {
                             startingFret = min(startingFret, 12)
                         }
                     }
-                    if directionLockActive {
-                        Section {
-                            Text("Direction is locked during an active run. Press RESET, then START to apply a new direction.")
+
+                    Section {
+                        Button {
+                            if layoutMode == .beginner {
+                                layoutMode = .maestro
+                            } else {
+                                layoutMode = .beginner
+                            }
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text(layoutMode == .beginner ? "Switch to Maestro Mode" : "Switch to Beginner Mode")
+                                    .font(.headline)
+                                Spacer()
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
                     }
                 case .phases:
                     Section("Quick Guide") {

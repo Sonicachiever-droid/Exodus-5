@@ -41,6 +41,17 @@ private struct WhiteNoteBoxOverlay: View {
         let boxWidth = min(clampedBoxHeight * 1.8, maxBoxWidthFromSpacing)
         let activeSet = Set(activeStringNumbers)
         return ZStack {
+            // Six individual translucent backgrounds for each answer box
+            ForEach(0..<totalStrings, id: \.self) { index in
+                let stringNumber = totalStrings - index
+                let isActive = activeSet.contains(stringNumber)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.black.opacity(0.42))
+                    .frame(width: boxWidth, height: clampedBoxHeight)
+                    .opacity(isActive ? 1 : 0.0001)
+                    .position(x: grooveCenters[index], y: centerY)
+            }
+
             ForEach(0..<totalStrings, id: \.self) { index in
                 let stringNumber = totalStrings - index
                 let isActive = activeSet.contains(stringNumber)
@@ -75,20 +86,6 @@ private struct WhiteNoteBoxOverlay: View {
                         return shouldUseAccidentalStyle ? Color.white.opacity(0.86) : Color.black.opacity(0.72)
                     }
                 }()
-                let auraColor: Color = {
-                    guard isActive else { return .clear }
-                    switch answerFeedback {
-                    case .green:
-                        return Color(red: 0.38, green: 0.92, blue: 0.45).opacity(0.35)
-                    case .red:
-                        return Color(red: 0.92, green: 0.28, blue: 0.20).opacity(0.35)
-                    default:
-                        if blinkingActive {
-                            return blinkOrange ? Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35) : Color.white.opacity(0.35)
-                        }
-                        return shouldUseAccidentalStyle ? Color.black.opacity(0.22) : Color.white.opacity(0.38)
-                    }
-                }()
 
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(fillColor)
@@ -96,8 +93,6 @@ private struct WhiteNoteBoxOverlay: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(strokeColor, lineWidth: 2)
                     )
-                    .shadow(color: auraColor, radius: 4)
-                    .shadow(color: auraColor.opacity(0.55), radius: 8)
                     .frame(width: boxWidth, height: clampedBoxHeight)
                     .overlay {
                         if isActive, let displayedNoteText, !displayedNoteText.isEmpty {
@@ -106,7 +101,6 @@ private struct WhiteNoteBoxOverlay: View {
                                 .minimumScaleFactor(0.32)
                                 .lineLimit(1)
                                 .foregroundStyle(shouldUseAccidentalStyle ? Color.white.opacity(0.96) : revealedNoteTextColor)
-                                .shadow(color: Color.black.opacity(0.55), radius: 2)
                                 .padding(.horizontal, 1)
                         }
                     }
@@ -1012,7 +1006,7 @@ private struct DeveloperTVStreakMeterView: View {
     }
 }
 
-struct ContentView: View {
+struct BeginnerGameplayView: View {
     let onMenuSelection: ((GameplayMenuOption) -> Void)?
     let selectedMode: RefretMode
     let selectedPhase: Int
@@ -1030,7 +1024,7 @@ struct ContentView: View {
 
     @State private var audioSettings = AudioSettings()
     @State private var showAudioPage: Bool = false
-    @State private var layoutMode: LayoutMode? = nil
+    private let layoutMode: LayoutMode = .beginner
 
     @Environment(\.displayScale) private var displayScale
     private let totalFrets: Int = 20
@@ -1098,7 +1092,7 @@ struct ContentView: View {
             case .oneHand:
                 return [1, 2, 3, 4]
             default:
-                return [1, 2, 3, 4, 5]
+                return [1, 2, 3, 4, 5, 6]
             }
         }()
 
@@ -1910,10 +1904,13 @@ struct ContentView: View {
                     let guideTileWidth = max(minGuideSpacing * 0.82, 18)
                     let guideTileHeight = guideBoxHeight * 0.86
                     ZStack {
-                        RoundedRectangle(cornerRadius: guideBoxCornerRadius, style: .continuous)
-                            .fill(Color.black.opacity(0.42))
-                            .frame(width: guideBoxWidth, height: guideBoxHeight)
-                            .position(x: proxy.size.width / 2, y: guideBoxCenterY)
+                        // Six individual translucent backgrounds matching each note box
+                        ForEach(Array(fretboardStrings.enumerated()), id: \.offset) { index, _ in
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.black.opacity(0.42))
+                                .frame(width: guideTileWidth, height: guideTileHeight)
+                                .position(x: stringCenters[index], y: guideBoxCenterY)
+                        }
 
                         ForEach(Array(fretboardStrings.enumerated()), id: \.offset) { index, stringNumber in
                             let note = noteName(forString: stringNumber, fret: max(currentRound, 0), useFlats: beginnerUsesFlats)
@@ -2094,7 +2091,7 @@ struct ContentView: View {
                     }
                 )
                     .frame(maxWidth: min((proxy.size.width - 24) * 0.88, 370))
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 12)
                     .opacity(codenameNemoEnabled ? 0 : 1)
             }
             .overlay(alignment: .topLeading) {
@@ -2317,50 +2314,6 @@ struct ContentView: View {
             .overlay {
                 EmptyView()
             }
-            .overlay {
-                if layoutMode == nil {
-                    ZStack {
-                        Color.black.opacity(0.6)
-                            .ignoresSafeArea()
-                        VStack(spacing: 20) {
-                            Text("Choose Console")
-                                .font(.title2).bold()
-                                .foregroundColor(.white)
-                            VStack(spacing: 12) {
-                                Button {
-                                    layoutMode = .beginner
-                                } label: {
-                                    Text("Beginner Console")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.blue.opacity(0.9))
-                                        .cornerRadius(12)
-                                }
-                                Button {
-                                    layoutMode = .maestro
-                                    isCodeScreensaverMode = false
-                                } label: {
-                                    Text("Maestro Console")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.gray.opacity(0.9))
-                                        .cornerRadius(12)
-                                }
-                            }
-                            .frame(maxWidth: 320)
-                        }
-                        .padding(24)
-                        .background(Color.black.opacity(0.5))
-                        .cornerRadius(16)
-                        .shadow(color: .black.opacity(0.4), radius: 16, x: 0, y: 6)
-                    }
-                    .allowsHitTesting(true)
-                }
-            }
             .onAppear(perform: handleContentOnAppear)
             .sheet(isPresented: $showAudioPage) {
                 AudioPageView(
@@ -2374,8 +2327,8 @@ struct ContentView: View {
             .onChange(of: showAudioPage) { _, isPresented in
                 if isPresented {
                     syncBackingTrackPlayback()
-                } else if !backingTrackShouldPlayInGameplay {
-                    syncBackingTrackPlayback()
+                } else {
+                    syncBackingTrackPlayback(allowResumeFromPause: true)
                 }
             }
             .onChange(of: audioSettings.guitarTonePreset) { _, newValue in
@@ -2414,17 +2367,6 @@ struct ContentView: View {
             }
             .onChange(of: beginnerRuntime.scaleCycleSemitoneOffset) { _, _ in
                 applyBeginnerBassTransposeForCurrentStage()
-            }
-            .onChange(of: layoutMode) { _, mode in
-                if mode == .beginner {
-                    beginnerRuntime.coursePhase = .round1Ascending
-                    isRoundArmed = true
-                    isRoundPaused = false
-                    roundRevealElapsedBeats = 0
-                    roundRevealLastTickDate = nil
-                }
-                updateDirectionLockState()
-                syncBackingTrackPlayback()
             }
             .onChange(of: isCodeScreensaverMode) { _, isScreensaverMode in
                 updateDirectionLockState()
@@ -2968,6 +2910,7 @@ struct ContentView: View {
         let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
         randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
         applyBeginnerBassTransposeForCurrentStage()
+        prepareCurrentQuestion()
     }
 
     private func advanceBeginnerScaleStage(afterCompletionFromString selectedString: Int, playTransitionNote: Bool = true) {
@@ -3156,30 +3099,39 @@ struct ContentView: View {
             return
         }
 
-        // Determine expected note based on lesson style
-        let expectedNote: String
         let fret = max(currentRound, 0)
 
         if playLessonStyle == "random" {
-            // Random style: check if we have a pending round shift
             guard beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending else {
                 beginnerRuntime.autoPlayNextDate = nil
                 return
             }
-            // Wait for all notes to be revealed
             guard beginnerRuntime.randomRevealCount >= 6 else {
                 beginnerRuntime.autoPlayNextDate = nil
                 return
             }
-            // Get the next expected note from the sequence
-            let sequence = randomNoteGenerator.currentNoteSequence
-            let currentIndex = randomNoteGenerator.sequenceProgressIndex
-            guard currentIndex < sequence.count else {
-                // Sequence complete - don't autoplay, wait for round shift
+            guard !randomNoteGenerator.isSequenceComplete() else {
                 beginnerRuntime.autoPlayNextDate = nil
                 return
             }
-            expectedNote = sequence[currentIndex]
+            guard let nextString = randomNoteGenerator.expectedString,
+                  let nextNote = randomNoteGenerator.currentNoteSequence.indices.contains(randomNoteGenerator.sequenceProgressIndex)
+                    ? Optional(randomNoteGenerator.currentNoteSequence[randomNoteGenerator.sequenceProgressIndex])
+                    : nil
+            else {
+                beginnerRuntime.autoPlayNextDate = nil
+                return
+            }
+            // Use the exact string the sequence demands — no guessing
+            if beginnerRuntime.autoPlayNextDate == nil {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
+            let buttonIndex = 6 - nextString
+            handleBeginnerConsoleButtonPress(selectedNote: nextNote, selectedString: nextString, buttonIndex: buttonIndex)
+            beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+            return
         } else {
             // Chord style: existing behavior
             guard beginnerRuntime.coursePhase == .round1Ascending,
@@ -3194,31 +3146,27 @@ struct ContentView: View {
             if safeSequenceIndex != beginnerRuntime.scaleSequenceIndex {
                 beginnerRuntime.scaleSequenceIndex = safeSequenceIndex
             }
-            expectedNote = beginnerCurrentScaleNotes[safeSequenceIndex]
-        }
+            let expectedNote = beginnerCurrentScaleNotes[safeSequenceIndex]
 
-        if beginnerRuntime.autoPlayNextDate == nil {
+            if beginnerRuntime.autoPlayNextDate == nil {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
+            let preferredStringOrder = beginnerAutoPlayPreferredStringOrder(for: expectedNote)
+            let matchedString = preferredStringOrder.first {
+                noteName(forString: $0, fret: fret, useFlats: false) == expectedNote
+            } ?? preferredStringOrder.first {
+                noteName(forString: $0, fret: fret, useFlats: beginnerUsesFlats) == expectedNote
+            }
+            guard let selectedString = matchedString else {
+                beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
+                return
+            }
+            let buttonIndex = 6 - selectedString
+            handleBeginnerConsoleButtonPress(selectedNote: expectedNote, selectedString: selectedString, buttonIndex: buttonIndex)
             beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
-            return
         }
-
-        guard let nextDate = beginnerRuntime.autoPlayNextDate, currentDate >= nextDate else { return }
-
-        let preferredStringOrder = beginnerAutoPlayPreferredStringOrder(for: expectedNote)
-        let matchedString = preferredStringOrder.first {
-            noteName(forString: $0, fret: fret, useFlats: false) == expectedNote
-        } ?? preferredStringOrder.first {
-            noteName(forString: $0, fret: fret, useFlats: beginnerUsesFlats) == expectedNote
-        }
-
-        guard let selectedString = matchedString else {
-            beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
-            return
-        }
-
-        let buttonIndex = 6 - selectedString
-        handleBeginnerConsoleButtonPress(selectedNote: expectedNote, selectedString: selectedString, buttonIndex: buttonIndex)
-        beginnerRuntime.autoPlayNextDate = currentDate.addingTimeInterval(0.38)
     }
 
     private func beginnerAutoPlayPreferredStringOrder(for expectedNote: String) -> [Int] {
@@ -3421,12 +3369,13 @@ struct ContentView: View {
     private func prepareCurrentQuestion() {
     if playLessonStyle == "random" {
         // Random style: use note sequence from generator
-        guard let nextNote = randomNoteGenerator.getNextNote(currentFret: max(currentRound, 0)) else { return }
+        let idx = randomNoteGenerator.sequenceProgressIndex
+        guard idx < randomNoteGenerator.currentNoteSequence.count,
+              let nextString = randomNoteGenerator.expectedString else { return }
+        let correctNote = randomNoteGenerator.currentNoteSequence[idx]
         let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-        let correctNote = nextNote
         let incorrectNote = randomIncorrectNote(excluding: correctNote, useFlats: useFlats)
         let correctOnLeft = Bool.random()
-        
         if correctOnLeft {
             leftChoiceNote = correctNote
             rightChoiceNote = incorrectNote
@@ -3434,11 +3383,13 @@ struct ContentView: View {
             leftChoiceNote = incorrectNote
             rightChoiceNote = correctNote
         }
-        
-        currentPromptStrings = [6] // Always use string 6 for Random style
+        currentPromptStrings = [nextString]
         lastPromptedCorrectNote = correctNote
         lastPromptedStringHalf = .left
-        lastPromptedStringNumber = 6
+        lastPromptedStringNumber = nextString
+        withAnimation(.easeInOut(duration: 1.3)) {
+            currentFretStart = max(currentRound, 0)
+        }
     } else {
         // Chord style: existing behavior
         let fret = max(currentRound, 0)
@@ -3594,45 +3545,34 @@ struct ContentView: View {
         // Random style: check against random note sequence
         if playLessonStyle == "random" {
             guard beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending else { return }
+            guard !randomNoteGenerator.currentNoteSequence.isEmpty else { return }
+            guard !randomNoteGenerator.isSequenceComplete() else { return }
 
-            let sequence = randomNoteGenerator.currentNoteSequence
-            guard !sequence.isEmpty else { return }
+            // Validate: note must match AND must not reuse an already-played string for that note
+            guard randomNoteGenerator.isValidAnswer(note: selectedNote, string: selectedString) else { return }
 
-            let currentIndex = randomNoteGenerator.sequenceProgressIndex
-            guard currentIndex < sequence.count else { return }
+            // Correct answer - light up the button
+            beginnerPressedButtonIndex = buttonIndex
+            beginnerPressedButtonCorrect = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                beginnerPressedButtonIndex = nil
+                beginnerPressedButtonCorrect = false
+            }
+            randomNoteGenerator.advanceSequence()
 
-            let expectedNote = sequence[currentIndex]
-
-            if selectedNote == expectedNote {
-                // Correct answer - light up the button
-                beginnerPressedButtonIndex = buttonIndex
-                beginnerPressedButtonCorrect = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                    beginnerPressedButtonIndex = nil
-                    beginnerPressedButtonCorrect = false
-                }
-                // Correct answer - advance in sequence
-                randomNoteGenerator.sequenceProgressIndex += 1
-
-                // Check if sequence is complete
-                if randomNoteGenerator.isSequenceComplete() {
-                    // All 6 notes completed - check repetitions
-                    if beginnerRuntime.scaleRepetitionsRemaining <= 1 {
-                        // Set 2-beat delay before shifting to next fret
-                        if beginnerRuntime.pendingRoundShiftBeatPosition == nil {
-                            beginnerRuntime.pendingRoundShiftBeatPosition = roundRevealElapsedBeats + 2.0
-                        }
-                        // Don't shift immediately - the main loop will handle it after delay
-                    } else {
-                        // Another repetition - reset sequence and shuffle (no delay needed for same fret)
-                        beginnerRuntime.scaleRepetitionsRemaining -= 1
-                        randomNoteGenerator.resetForNewFret()
-                        beginnerRuntime.randomRevealCount = 0
-                        beginnerRuntime.randomRevealStartBeatBucket = nil
-                        beginnerRuntime.answerBoxReady = false
-                        let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-                        randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
+            if randomNoteGenerator.isSequenceComplete() {
+                if beginnerRuntime.scaleRepetitionsRemaining <= 1 {
+                    if beginnerRuntime.pendingRoundShiftBeatPosition == nil {
+                        beginnerRuntime.pendingRoundShiftBeatPosition = roundRevealElapsedBeats + 2.0
                     }
+                } else {
+                    beginnerRuntime.scaleRepetitionsRemaining -= 1
+                    randomNoteGenerator.resetForNewFret()
+                    beginnerRuntime.randomRevealCount = 0
+                    beginnerRuntime.randomRevealStartBeatBucket = nil
+                    beginnerRuntime.answerBoxReady = false
+                    let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
+                    randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
                 }
             }
             return
@@ -3704,7 +3644,7 @@ struct ContentView: View {
         guitarNoteEngine.play(string: stringNumber, fret: max(fret, 0), velocity: velocity)
     }
 
-    private func syncBackingTrackPlayback() {
+    private func syncBackingTrackPlayback(allowResumeFromPause: Bool = false) {
         guard !availableBackingTracks.isEmpty else {
             midiEngine.stop()
             isBackingTrackPlaying = false
@@ -3732,6 +3672,14 @@ struct ContentView: View {
         }
 
         applyBeginnerBassTransposeForCurrentStage()
+        
+        // If allowed and same track was paused, resume from that position
+        if allowResumeFromPause {
+            midiEngine.resume()
+            isBackingTrackPlaying = midiEngine.isPlaying
+            return
+        }
+        
         midiEngine.play(url: trackURL, title: selectedTrack.title, loop: true)
         isBackingTrackPlaying = midiEngine.isPlaying
     }
@@ -3839,7 +3787,6 @@ struct ContentView: View {
         isRoundPaused = false
         roundRevealLastTickDate = nil
         midiEngine.resume()
-        isBackingTrackPlaying = midiEngine.isPlaying
         beginnerRuntime.beatLightFlashOn = false
         beginnerRuntime.beatLightLastProcessedBeat = nil
         beginnerRuntime.beatLightIntroMeasureSkipped = false
@@ -3984,7 +3931,7 @@ private struct PurpleGuidelineLayer: View {
     }
 }
 
-private extension ContentView {
+private extension BeginnerGameplayView {
     func debugGridOverlay(size: CGSize, columns: Int, rows: Int) -> some View {
         let cellWidth = size.width / CGFloat(columns)
         let cellHeight = size.height / CGFloat(rows)
@@ -4424,7 +4371,7 @@ private struct DeveloperButtonStack: View {
 }
 
 #Preview {
-    ContentView()
+    BeginnerGameplayView()
 }
 
 private struct ProjectLinebackerOverlay: View {
