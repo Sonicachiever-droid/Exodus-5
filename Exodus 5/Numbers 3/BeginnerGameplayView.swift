@@ -1783,11 +1783,10 @@ struct BeginnerGameplayView: View {
                 )
             }()
             let screensaverThumbState: ThumbGlowState = {
-                guard startupState.isVisible else { return .neutral }
                 switch startupState.phase {
-                case .systemOnline: return .orange
-                case .phaseOne: return .red
-                case .armed: return .green
+                case .systemOnline: return startupState.isVisible ? .orange : .neutral
+                case .phaseOne: return startupState.isVisible ? .red : .neutral
+                case .armed: return startupState.isVisible ? .green : .neutral
                 }
             }()
             let effectiveLeftThumbState = isCodeScreensaverMode ? screensaverThumbState : leftThumbState
@@ -1983,6 +1982,10 @@ struct BeginnerGameplayView: View {
                     || !(beginnerRuntime.rewardNoteTextByString?.isEmpty ?? true)
                 let shouldShowWhiteAnswerBox = shouldShowQuestionUI && {
                     if layoutMode != .beginner { return true }
+                    // Show answer box when note is selected, regardless of game state
+                    if hasBeginnerSelectedNote && beginnerRuntime.answerBoxReady {
+                        return true
+                    }
                     // Random mode: answerBoxReady is set when all 6 notes revealed
                     if playLessonStyle == "random" {
                         return beginnerRuntime.answerBoxReady && hasBeginnerSelectedNote
@@ -2185,12 +2188,14 @@ struct BeginnerGameplayView: View {
                                         if let pressedIndex = beginnerPressedButtonIndex, pressedIndex == buttonIndex {
                                             return beginnerPressedButtonCorrect ? .green : .red
                                         }
+                                        if isCodeScreensaverMode && startupState.phase == .armed && startupState.isVisible {
+                                            return .green
+                                        }
                                         return .neutral
                                     }()
                                 )
                             }
                             .buttonStyle(.plain)
-                            .disabled(startupStartButtonAttentionActive)
                             .position(x: leftButtonX, y: rowYs[idx])
                         }
 
@@ -2216,12 +2221,14 @@ struct BeginnerGameplayView: View {
                                         if let pressedIndex = beginnerPressedButtonIndex, pressedIndex == buttonIndex {
                                             return beginnerPressedButtonCorrect ? .green : .red
                                         }
+                                        if isCodeScreensaverMode && startupState.phase == .armed && startupState.isVisible {
+                                            return .green
+                                        }
                                         return .neutral
                                     }()
                                 )
                             }
                             .buttonStyle(.plain)
-                            .disabled(startupStartButtonAttentionActive)
                             .position(x: rightButtonX, y: rowYs[idx])
                         }
 
@@ -2260,7 +2267,7 @@ struct BeginnerGameplayView: View {
                         .frame(minWidth: 58, minHeight: 34, maxHeight: 34)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill((startupStartButtonAttentionActive && startupStartButtonBlinkOn)
+                                .fill((startupStartButtonAttentionActive && (!startupSequenceActivated ? startupStartButtonBlinkOn : startupState.isVisible))
                                     ? Color.green.opacity(0.9)
                                     : Color.clear)
                                 .overlay(
@@ -2464,7 +2471,7 @@ struct BeginnerGameplayView: View {
     }
 
     private func handleMainTimerTick(_ date: Date) {
-        let shouldBlinkStartupStartButton = startupStartButtonAttentionActive
+        let shouldBlinkStartupStartButton = startupStartButtonAttentionActive && !startupSequenceActivated
 
         if shouldBlinkStartupStartButton {
             if startupStartButtonNextBlinkDate == nil {
@@ -3509,7 +3516,6 @@ struct BeginnerGameplayView: View {
             handleRoundStartButton()
             return
         }
-        guard !isRoundPaused else { return }
         if isCodeScreensaverMode {
             submitAnswer(.left)
             return
