@@ -86,6 +86,7 @@ final class GuitarNoteEngine {
         toneConfiguration = newConfiguration
         configureEffects()
         if presetChanged {
+            stopAll()
             loadInstrument(for: preset)
         }
     }
@@ -105,6 +106,7 @@ final class GuitarNoteEngine {
         notePlaybackToken &+= 1
         let playbackToken = notePlaybackToken
         let releaseDelay = noteLength(for: toneConfiguration.preset)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + releaseDelay) { [weak self] in
             guard let self else { return }
             guard self.notePlaybackToken == playbackToken else { return }
