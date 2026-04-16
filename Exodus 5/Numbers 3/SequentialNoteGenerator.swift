@@ -11,7 +11,7 @@ class SequentialNoteGenerator: ObservableObject {
         ("E", 6), ("A", 5), ("D", 4), ("G", 3), ("B", 2), ("E", 1)
     ]
 
-    func generateNoteSequence(for fret: Int, useFlats: Bool = false) {
+    func generateNoteSequence(for fret: Int, useFlats: Bool = false, lowToHigh: Bool = true) {
         let sharps = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
         let flats  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
         let chromatic = useFlats ? flats : sharps
@@ -21,9 +21,9 @@ class SequentialNoteGenerator: ObservableObject {
                 pairs.append((chromatic[(i + fret) % 12], entry.string))
             }
         }
-        // Sequential mode: use fixed order (strings 1→2→3→4→5→6, not shuffled)
-        // Reverse pairs to go string 1 (high E) to string 6 (low E)
-        let ordered = pairs.reversed()
+        // Sequential mode: lowToHigh = strings 6→5→4→3→2→1 (ascending pitch)
+        // highToLow = strings 1→2→3→4→5→6 (descending pitch)
+        let ordered = lowToHigh ? pairs : pairs.reversed()
         currentNoteSequence = ordered.map { $0.note }
         noteStringMap = ordered.map { $0.string }
         usedStringLocations.removeAll()

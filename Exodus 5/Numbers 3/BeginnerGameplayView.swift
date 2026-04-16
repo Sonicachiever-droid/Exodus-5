@@ -693,6 +693,7 @@ private struct DeveloperConsoleFrame: View {
     let width: CGFloat
     let height: CGFloat
     let isScreensaverMode: Bool
+    let layoutMode: LayoutMode
     let roundTitle: String
     let fretTitle: String
     let stringTitle: String
@@ -705,10 +706,14 @@ private struct DeveloperConsoleFrame: View {
     let startupShowFullSequence: Bool
     let startupArmedText: String
     let beginnerRoundStatusText: String?
+    let phaseAnnouncementText: AttributedString?
     let celebrationActive: Bool
     let celebrationFlashOn: Bool
     let centeredStatusMessage: String?
     let centeredStatusColor: Color
+    let currentRound: Int
+    let repetitionCountColor: Color
+    let walletColor: Color
 
     private var isHintVisible: Bool {
         promptText.lowercased().hasPrefix("hint:")
@@ -781,8 +786,9 @@ private struct DeveloperConsoleFrame: View {
                                 if !showStartupSequence {
                                     DeveloperCodeRunnerView()
                                         .padding(.horizontal, 12)
-                                        .padding(.top, 24)
+                                        .padding(.top, 4)
                                         .padding(.bottom, 10)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
 
                                 if showStartupSequence {
@@ -825,60 +831,63 @@ private struct DeveloperConsoleFrame: View {
                                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                                 } else {
                                     ZStack {
-                                        VStack(spacing: 14) {
-                                            HStack(alignment: .top) {
-                                                let progressFontSize = adaptiveProgressFontSize(for: scaleRepetitionText)
-
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text("WALLET")
-                                                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                                        .foregroundStyle(Color.white.opacity(0.9))
-                                                    Text(bankText)
-                                                        .font(.system(size: 16, weight: .black, design: .monospaced))
-                                                        .foregroundStyle(Color.green.opacity(0.96))
-                                                }
-
-                                                Spacer(minLength: 8)
-
-                                                if let beginnerRoundStatusText {
-                                                    let statusLines = beginnerRoundStatusText.components(separatedBy: "\n")
-                                                    VStack(spacing: 0) {
-                                                        if statusLines.indices.contains(0) {
-                                                            Text(statusLines[0])
-                                                                .font(.system(size: min(width * 0.055, 14), weight: .black, design: .monospaced))
-                                                                .lineLimit(1)
-                                                                .minimumScaleFactor(0.82)
-                                                        }
-                                                    }
-                                                    .foregroundStyle(Color.green.opacity(0.96))
-                                                    .multilineTextAlignment(.center)
-                                                    .frame(maxWidth: .infinity, alignment: .center)
-                                                }
-
-                                                Spacer(minLength: 8)
-
-                                                VStack(alignment: .trailing, spacing: 2) {
-                                                    Text("HIGH SCORE")
-                                                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                                        .foregroundStyle(Color.white.opacity(0.9))
-                                                    Text(highScoreText)
-                                                        .font(.system(size: 16, weight: .black, design: .monospaced))
-                                                        .foregroundStyle(Color.green.opacity(0.96))
+                                        // Grid overlay for positioning reference (beginner mode only)
+                                        if layoutMode == .beginner {
+                                            GridOverlay()
+                                                .allowsHitTesting(false)
+                                        }
+                                        
+                                        VStack(spacing: 0) {
+                                            // Only show 3x/Round/Wallet line when phase announcement is not active
+                                            if phaseAnnouncementText == nil {
+                                                HStack {
                                                     Text(scaleRepetitionText)
-                                                        .font(.system(size: progressFontSize, weight: .black, design: .monospaced))
-                                                        .foregroundStyle(Color.yellow.opacity(0.96))
-                                                        .lineLimit(1)
-                                                        .minimumScaleFactor(0.5)
+                                                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                                                        .foregroundStyle(repetitionCountColor)
+                                                    Spacer()
+                                                    Text("Round \(max(currentRound, 0) + 1)")
+                                                        .font(.system(size: min(width * 0.095, 26), weight: .black, design: .monospaced))
+                                                        .foregroundStyle(Color.white)
+                                                    Spacer()
+                                                    VStack(alignment: .trailing, spacing: 2) {
+                                                        Text("WALLET")
+                                                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                                            .foregroundStyle(Color.white.opacity(0.9))
+                                                        Text(bankText)
+                                                            .font(.system(size: 16, weight: .black, design: .monospaced))
+                                                            .foregroundStyle(Color.green.opacity(0.96))
+                                                    }
                                                 }
                                             }
 
-                                            Spacer(minLength: 0)
-
-                                            Spacer(minLength: 0)
+                                            if let beginnerRoundStatusText {
+                                                let statusLines = beginnerRoundStatusText.components(separatedBy: "\n")
+                                                VStack(spacing: 0) {
+                                                    if statusLines.indices.contains(0) {
+                                                        Text(statusLines[0])
+                                                            .font(.system(size: min(width * 0.13, 36), weight: .black, design: .monospaced))
+                                                            .lineLimit(1)
+                                                            .minimumScaleFactor(0.82)
+                                                    }
+                                                }
+                                                .foregroundStyle(Color.green.opacity(0.96))
+                                                .multilineTextAlignment(.center)
+                                                .frame(maxWidth: .infinity, alignment: .center)
+                                            }
                                         }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
-                                        if let beginnerRoundStatusText {
+                                        if let phaseAnnouncementText {
+                                            Text(phaseAnnouncementText)
+                                                .font(.system(size: min(width * 0.095, 26), weight: .black, design: .monospaced))
+                                                .minimumScaleFactor(0.7)
+                                                .lineLimit(4)
+                                                .multilineTextAlignment(.center)
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 10)
+                                                .allowsHitTesting(false)
+                                        } else if let beginnerRoundStatusText {
                                             let statusLines = beginnerRoundStatusText.components(separatedBy: "\n")
                                             let titleLine = statusLines.indices.contains(1) ? statusLines[1] : ""
                                             let notesLine = statusLines.indices.contains(2) ? statusLines[2] : ""
@@ -888,7 +897,7 @@ private struct DeveloperConsoleFrame: View {
 
                                             if !startupMappedBlock.isEmpty {
                                                 Text(startupMappedBlock)
-                                                    .font(.system(size: min(width * 0.085, 22), weight: .black, design: .monospaced))
+                                                    .font(.system(size: min(width * 0.19, 52), weight: .black, design: .monospaced))
                                                     .foregroundStyle(Color.green.opacity(0.98))
                                                     .minimumScaleFactor(0.3)
                                                     .lineLimit(2)
@@ -906,7 +915,7 @@ private struct DeveloperConsoleFrame: View {
                             }
                             .multilineTextAlignment(.leading)
                             .padding(.horizontal, 14)
-                            .padding(.top, 22)
+                            .padding(.top, 10)
                             .padding(.bottom, 10)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
@@ -1257,6 +1266,7 @@ struct BeginnerGameplayView: View {
         var answerBoxReady: Bool = false
         var pentatonicRevealCount: Int = 0
         var coursePhase: BeginnerCoursePhase = .round1Ascending
+        var currentPhaseNumber: Int = 1
         var scaleRepetitionsRemaining: Int = 1
         var scaleSequenceIndex: Int = 0
         var scaleStageIndex: Int = 0
@@ -1280,6 +1290,9 @@ struct BeginnerGameplayView: View {
         var sequentialRevealStartBeatBucket: Int? = nil
         // Round shift delay state
         var pendingRoundShiftBeatPosition: Double? = nil
+        // Phase announcement timing state
+        var phaseAnnouncementStartBeat: Double? = nil
+        var phaseAnnouncementPhase: Int = 0 // 0=none, 1=phase number, 2=attributes, 3=completed
     }
 
     private struct BeginnerRewardPolicyKey: Hashable {
@@ -1393,37 +1406,116 @@ struct BeginnerGameplayView: View {
     }
 
     private var beginnerCurrentRoundLabel: String {
-        "BEGINNER ROUND \(max(currentRound, 0))"
+        "BEGINNER ROUND \(max(currentRound, 0) + 1)"
     }
 
     private var shouldShowLegacyRoundZeroIntro: Bool {
         beginnerRoundOneStartingFret == 0
     }
 
+    private func getPhaseAttributes(for phaseNumber: Int) -> [String] {
+        switch phaseNumber {
+        case 1:
+            return ["Sequential", "Low to High", "Ascending"]
+        case 2:
+            return ["Sequential", "Low to High", "Descending"]
+        case 3:
+            return ["Sequential", "High to Low", "Ascending"]
+        case 4:
+            return ["Sequential", "High to Low", "Descending"]
+        default:
+            return ["Sequential", "Low to High", "Ascending"]
+        }
+    }
+
+    private func getPhaseAttributeColors(for phaseNumber: Int) -> [Color] {
+        return [.green, .yellow, .orange, .white]
+    }
+
+    private func getPhaseNumberColor() -> Color {
+        .cyan
+    }
+
+    private func getWalletColor() -> Color {
+        .green
+    }
+
+    private func getRepetitionCountColor() -> Color {
+        .pink
+    }
+
+    private var phaseAnnouncementText: AttributedString? {
+        guard layoutMode == .beginner else { return nil }
+        guard playLessonStyle == "sequential" else { return nil }
+        guard !isCodeScreensaverMode else { return nil }
+        guard let startBeat = beginnerRuntime.phaseAnnouncementStartBeat else { return nil }
+
+        let elapsedBeats = roundRevealElapsedBeats - startBeat
+        let phaseNum = beginnerRuntime.currentPhaseNumber
+
+        // Phase number display (beats 0-4)
+        if elapsedBeats < 4.0 {
+            var attributedString = AttributedString("PHASE \(phaseNum)")
+            attributedString.foregroundColor = getPhaseNumberColor()
+            return attributedString
+        }
+
+        // Attributes display (beats 4-10)
+        if elapsedBeats < 10.0 {
+            let attributeBeat = Int(floor(elapsedBeats - 4.0))
+            let attributes = getPhaseAttributes(for: phaseNum)
+            let colors = getPhaseAttributeColors(for: phaseNum)
+            var attributedString = AttributedString("")
+
+            if attributeBeat >= 0 {
+                attributedString += AttributedString(attributes[0])
+                attributedString.foregroundColor = colors[0]
+            }
+            if attributeBeat >= 2 {
+                attributedString += AttributedString("\n" + attributes[1])
+                let range = attributedString.range(of: attributes[1])
+                if let range = range {
+                    attributedString[range].foregroundColor = colors[1]
+                }
+            }
+            if attributeBeat >= 4 {
+                attributedString += AttributedString("\n" + attributes[2])
+                let range = attributedString.range(of: attributes[2])
+                if let range = range {
+                    attributedString[range].foregroundColor = colors[2]
+                }
+            }
+            return attributedString
+        }
+
+        return nil
+    }
+
     private var beginnerRoundStatusText: String? {
         guard layoutMode == .beginner else { return nil }
-        
+
+        // If phase announcement is active, return nil (will use phaseAnnouncementText instead)
+        if beginnerRuntime.phaseAnnouncementStartBeat != nil {
+            return nil
+        }
+
         // Random style: show revealed notes one by one on the beat
         if playLessonStyle == "random" {
             guard beginnerRuntime.coursePhase == .round1Ascending || beginnerRuntime.coursePhase == .round2Descending else { return nil }
             guard !isCodeScreensaverMode else { return nil }
 
-            let roundLabel = "BEGINNER ROUND \(max(currentRound, 0))"
-            let styleLabel = "RANDOM STYLE"
             let revealCount = min(beginnerRuntime.randomRevealCount, randomNoteGenerator.currentNoteSequence.count)
             let revealedNotes = randomNoteGenerator.currentNoteSequence.prefix(revealCount).joined(separator: " ")
-            return "\(roundLabel)\n\(styleLabel)\n\(revealedNotes)"
+            return revealedNotes
         }
 
         // Sequential style: show revealed notes one by one
         if playLessonStyle == "sequential" {
             guard !isCodeScreensaverMode else { return nil }
 
-            let roundLabel = "BEGINNER ROUND \(max(currentRound, 0))"
-            let styleLabel = "SEQUENTIAL ORDER"
             let revealCount = min(beginnerRuntime.sequentialRevealCount, sequentialNoteGenerator.currentNoteSequence.count)
             let revealedNotes = sequentialNoteGenerator.currentNoteSequence.prefix(revealCount).joined(separator: " ")
-            return "\(roundLabel)\n\(styleLabel)\n\(revealedNotes)"
+            return revealedNotes
         }
 
         // Chord style: existing behavior
@@ -1992,6 +2084,7 @@ struct BeginnerGameplayView: View {
                     width: topStatusOuterWidth,
                     height: topStatusOuterHeight,
                     isScreensaverMode: isCodeScreensaverMode,
+                    layoutMode: layoutMode,
                     roundTitle: "\(phaseLabel) • \(roundStatusLabel)",
                     fretTitle: displayedFretStatusLabel,
                     stringTitle: displayedStringStatusLabel,
@@ -2004,10 +2097,14 @@ struct BeginnerGameplayView: View {
                     startupShowFullSequence: layoutMode != .beginner,
                     startupArmedText: beginnerStartupArmedText,
                     beginnerRoundStatusText: beginnerRoundStatusText,
+                    phaseAnnouncementText: phaseAnnouncementText,
                     celebrationActive: beginnerCelebrationActive,
                     celebrationFlashOn: beginnerRuntime.celebrationFlashOn,
                     centeredStatusMessage: beginnerCenteredStatusMessage,
-                    centeredStatusColor: beginnerCenteredStatusColor
+                    centeredStatusColor: beginnerCenteredStatusColor,
+                    currentRound: currentRound,
+                    repetitionCountColor: getRepetitionCountColor(),
+                    walletColor: getWalletColor()
                 )
                 .position(x: proxy.size.width / 2, y: topStatusCenterY)
                 .allowsHitTesting(false)
@@ -2514,6 +2611,25 @@ struct BeginnerGameplayView: View {
             handleStartupSpeech(for: startupState.phase)
         }
 
+        // Clear phase announcement after it completes (14 beats)
+        if let startBeat = beginnerRuntime.phaseAnnouncementStartBeat {
+            let elapsedBeats = roundRevealElapsedBeats - startBeat
+            if elapsedBeats >= 14.0 {
+                beginnerRuntime.phaseAnnouncementStartBeat = nil
+                // Set roundOneIntroActive to trigger chord mode reveal pattern after phase announcement completes
+                if layoutMode == .beginner && (playLessonStyle == "sequential" || playLessonStyle == "random") {
+                    beginnerRuntime.roundOneIntroActive = true
+                    beginnerRuntime.roundOneSequenceStartDate = date
+                    let currentBeatBucket = Int(floor(roundRevealElapsedBeats))
+                    if playLessonStyle == "sequential" {
+                        beginnerRuntime.sequentialRevealStartBeatBucket = currentBeatBucket
+                    } else if playLessonStyle == "random" {
+                        beginnerRuntime.randomRevealStartBeatBucket = currentBeatBucket
+                    }
+                }
+            }
+        }
+
         if isRoundArmed || isRoundPaused {
             beginnerRuntime.beatLightFlashOn = false
             roundRevealLastTickDate = nil
@@ -2726,7 +2842,7 @@ struct BeginnerGameplayView: View {
 
         // Initialize Sequential style state if needed
         if playLessonStyle == "sequential" {
-            sequentialNoteGenerator.generateNoteSequence(for: currentRound, useFlats: beginnerUsesFlats)
+            sequentialNoteGenerator.generateNoteSequence(for: currentRound, useFlats: beginnerUsesFlats, lowToHigh: beginnerRuntime.currentPhaseNumber <= 2)
             beginnerRuntime.sequentialRevealCount = 0
             beginnerRuntime.sequentialRevealStartBeatBucket = nil
         }
@@ -2950,7 +3066,7 @@ struct BeginnerGameplayView: View {
         if playLessonStyle == "random" {
             randomNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
         } else if playLessonStyle == "sequential" {
-            sequentialNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
+            sequentialNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats, lowToHigh: beginnerRuntime.currentPhaseNumber <= 2)
         }
         applyBeginnerBassTransposeForCurrentStage()
         prepareCurrentQuestion()
@@ -3018,8 +3134,8 @@ struct BeginnerGameplayView: View {
         }
 
         if beginnerRuntime.coursePhase == .round1Ascending {
-            if playLessonStyle == "random" {
-                // Random style: transpose bass to match E string note at current fret
+            if playLessonStyle == "random" || playLessonStyle == "sequential" {
+                // Random/Sequential style: transpose bass to match E string note at current fret
                 // E string at fret 0 = E (MIDI 40), fret 1 = F (MIDI 41), etc.
                 let transposeSemitones = max(currentRound, 0)
                 midiEngine.setBassTransposeSemitones(transposeSemitones)
@@ -3105,6 +3221,11 @@ struct BeginnerGameplayView: View {
               !startupSequenceActivated
         else { return }
 
+        // Use chord mode pattern with roundOneIntroActive flag
+        guard beginnerRuntime.roundOneIntroActive,
+              beginnerRuntime.roundOneSequenceStartDate != nil
+        else { return }
+
         let currentBeatBucket = Int(floor(roundRevealElapsedBeats))
         if beginnerRuntime.randomRevealStartBeatBucket == nil {
             beginnerRuntime.randomRevealStartBeatBucket = currentBeatBucket
@@ -3123,6 +3244,9 @@ struct BeginnerGameplayView: View {
         }
 
         if clampedRevealCount >= 6 {
+            beginnerRuntime.roundOneIntroActive = false
+            beginnerRuntime.roundOneSequenceStartDate = nil
+            beginnerRuntime.randomRevealStartBeatBucket = nil
             beginnerRuntime.answerBoxReady = true
         }
     }
@@ -3704,7 +3828,7 @@ struct BeginnerGameplayView: View {
                     beginnerRuntime.sequentialRevealStartBeatBucket = nil
                     beginnerRuntime.answerBoxReady = false
                     let useFlats = layoutMode == .beginner ? beginnerUsesFlats : false
-                    sequentialNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats)
+                    sequentialNoteGenerator.generateNoteSequence(for: max(currentRound, 0), useFlats: useFlats, lowToHigh: beginnerRuntime.currentPhaseNumber <= 2)
                     prepareCurrentQuestion()
                 }
             }
@@ -3868,6 +3992,22 @@ struct BeginnerGameplayView: View {
         isRoundArmed = false
         roundRevealElapsedBeats = 0
         roundRevealLastTickDate = nil
+
+        // Trigger phase announcement for sequential mode
+        if layoutMode == .beginner && playLessonStyle == "sequential" {
+            beginnerRuntime.phaseAnnouncementStartBeat = 0
+            beginnerRuntime.phaseAnnouncementPhase = 1
+            // Reset reveal count to ensure progressive reveal starts from 0
+            beginnerRuntime.sequentialRevealCount = 0
+            beginnerRuntime.sequentialRevealStartBeatBucket = nil
+        }
+        
+        // Reset reveal counts for random mode to ensure progressive reveal
+        if layoutMode == .beginner && playLessonStyle == "random" {
+            beginnerRuntime.randomRevealCount = 0
+            beginnerRuntime.randomRevealStartBeatBucket = nil
+        }
+
         startGameFromBeginning(animateNeckSlideFromStartup: animateNeckSlideFromStartup)
         updateDirectionLockState()
         if !animateNeckSlideFromStartup {
@@ -4576,4 +4716,54 @@ private struct ProjectLinebackerOverlay: View {
     }
 }
 
+private struct GridOverlay: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            
+            ZStack {
+                // Draw horizontal lines (5 lines creating 6 rows)
+                ForEach(1..<6, id: \.self) { index in
+                    let yPosition = CGFloat(index) * (height / 6.0)
+                    Rectangle()
+                        .fill(Color.red)
+                        .frame(width: width, height: 1)
+                        .position(x: width / 2, y: yPosition)
+                        .allowsHitTesting(false)
+                }
+                
+                // Draw vertical lines (5 lines creating 6 columns)
+                ForEach(1..<6, id: \.self) { index in
+                    let xPosition = CGFloat(index) * (width / 6.0)
+                    Rectangle()
+                        .fill(Color.red)
+                        .frame(width: 1, height: height)
+                        .position(x: xPosition, y: height / 2)
+                        .allowsHitTesting(false)
+                }
+                
+                // Add numbered squares (row-column format: 1a, 1b, 1c, 1d, 1e, 1f for row 1; 2a, 2b, 2c... for row 2)
+                ForEach(0..<6, id: \.self) { row in
+                    ForEach(0..<6, id: \.self) { col in
+                        let xPosition = CGFloat(col) * (width / 6.0) + (width / 12.0)
+                        let yPosition = CGFloat(row) * (height / 6.0) + (height / 12.0)
+                        let rowNumber = row + 1
+                        let aValue = "a".unicodeScalars.first!.value
+                        let colValue = aValue + UInt32(col)
+                        let colLetter = Character(UnicodeScalar(colValue)!)
+                        let label = "\(rowNumber)\(colLetter)"
+
+                        Text(label)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(Color.red.opacity(0.7))
+                            .position(x: xPosition, y: yPosition)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
 
