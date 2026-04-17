@@ -115,8 +115,7 @@ private final class GameplayAudioEngine {
 private struct GameplayControlPlateShell: View {
     let isMenuExpanded: Bool
     let isStartupInputLockActive: Bool
-    let isAutoplayActive: Bool
-    let onAutoplay: () -> Void
+    let onHint: () -> Void
     let onFretboard: () -> Void
     let onToggleMenu: () -> Void
     let onSelectMenuOption: (GameplayMenuOption) -> Void
@@ -144,7 +143,7 @@ private struct GameplayControlPlateShell: View {
                 }
 
                 HStack(spacing: 8) {
-                    plateButton(title: "AUTOPLAY", action: onAutoplay, isActive: isAutoplayActive)
+                    plateButton(title: "HINT", action: onHint)
                         .disabled(isStartupInputLockActive)
                     plateButton(title: "FRETBOARD", action: onFretboard)
                         .disabled(isStartupInputLockActive)
@@ -200,38 +199,32 @@ private struct GameplayControlPlateShell: View {
         )
     }
 
-    private func plateButton(title: String, action: @escaping () -> Void, isActive: Bool = false) -> some View {
+    private func plateButton(title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.90, green: 0.76, blue: 0.44),
-                                Color(red: 0.72, green: 0.54, blue: 0.26),
-                                Color(red: 0.87, green: 0.72, blue: 0.40)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.90, green: 0.76, blue: 0.44),
+                            Color(red: 0.72, green: 0.54, blue: 0.26),
+                            Color(red: 0.87, green: 0.72, blue: 0.40)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
-                if isActive {
+                )
+                .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)
+                .overlay(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.green.opacity(0.9))
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)
-            .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
-            )
-            .overlay(
-                Text(title)
-                    .font(.system(size: 10.35, weight: .regular, design: .monospaced))
-                    .fontWidth(.compressed)
-                    .kerning(0.8)
-                    .foregroundStyle(Color.black.opacity(0.92))
-            )
+                        .stroke(Color.black.opacity(0.34), lineWidth: 1.0)
+                )
+                .overlay(
+                    Text(title)
+                        .font(.system(size: 10.35, weight: .regular, design: .monospaced))
+                        .fontWidth(.compressed)
+                        .kerning(0.8)
+                        .foregroundStyle(Color.black.opacity(0.92))
+                )
         }
         .buttonStyle(.plain)
     }
@@ -562,6 +555,10 @@ private struct DeveloperConsoleFrame: View {
     let startupElapsed: TimeInterval
     let showStartupSequence: Bool
 
+    private var isHintVisible: Bool {
+        promptText.lowercased().hasPrefix("hint:")
+    }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -626,7 +623,17 @@ private struct DeveloperConsoleFrame: View {
                                 }
                             }
                         } else {
-                            HStack(alignment: .top) {
+                            ZStack {
+                                if isHintVisible {
+                                    Text(promptText.replacingOccurrences(of: "hint:", with: "", options: [.caseInsensitive], range: nil).trimmingCharacters(in: .whitespaces))
+                                        .font(.system(size: hintFontSize(for: promptText), weight: .black, design: .monospaced))
+                                        .foregroundStyle(Color.orange.opacity(0.98))
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(nil)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                } else {
+                                    HStack(alignment: .top) {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("WALLET")
                                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -672,16 +679,28 @@ private struct DeveloperConsoleFrame: View {
                                         }
                                     }
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                                    .multilineTextAlignment(.leading)
-                                    .padding(.horizontal, 14)
-                                    .padding(.top, 22)
-                                    .padding(.bottom, 10)
+                                }
+                            }
+                            .multilineTextAlignment(.leading)
+                            .padding(.horizontal, 14)
+                            .padding(.top, 22)
+                            .padding(.bottom, 10)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                 }
                 .padding(8)
         }
+        .scaleEffect(isHintVisible ? 1.02 : 1.0)
         .frame(width: width, height: height)
+    }
+
+    private func hintFontSize(for text: String) -> CGFloat {
+        let clean = text.replacingOccurrences(of: "hint:", with: "", options: [.caseInsensitive], range: nil)
+        let trimmed = clean.trimmingCharacters(in: .whitespaces)
+        let base: CGFloat = 54
+        let reduction = CGFloat(max(trimmed.count - 12, 0)) * 1.2
+        return max(24, base - reduction)
     }
 }
 
@@ -971,6 +990,14 @@ struct MaestroGameplayView: View {
         3: "G",
         2: "B",
         1: "E"
+    ]
+    private let phaseOneHintByString: [Int: String] = [
+        1: "OLD MACDONALD HAS A ..?",
+        2: "What note is a fourth below E?",
+        3: "What note is a third below B?",
+        4: "What note is a fourth below G?",
+        5: "What note is a fourth below D?",
+        6: "What note is a fourth below A?"
     ]
     private let codenameNemoEnabled: Bool = false
     private let scaleLengthInches: Double = 25.5
@@ -1535,9 +1562,8 @@ struct MaestroGameplayView: View {
                 GameplayControlPlateShell(
                     isMenuExpanded: gameplayMenuExpanded,
                     isStartupInputLockActive: false,
-                    isAutoplayActive: autoPlayEnabled,
-                    onAutoplay: {
-                        autoPlayEnabled.toggle()
+                    onHint: {
+                        handleHintButtonPress()
                     },
                     onFretboard: {
                         handleFretboardButtonPress()
@@ -1580,6 +1606,19 @@ struct MaestroGameplayView: View {
                 .frame(maxWidth: .infinity)
                 .position(x: proxy.size.width / 2, y: buttonCenterY)
                 .opacity(codenameNemoEnabled ? 0 : initialGameplayDimOpacity)
+            }
+            .overlay(alignment: .topLeading) {
+                if !isCodeScreensaverMode {
+                    Toggle(isOn: $autoPlayEnabled) {
+                        Text("AUTO")
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                    }
+                    .toggleStyle(.switch)
+                    .scaleEffect(0.85)
+                    .padding(.leading, 12)
+                    .padding(.top, 8)
+                }
             }
             .onAppear {
                 if assetToNutBottomDelta == nil {
@@ -1797,6 +1836,7 @@ struct MaestroGameplayView: View {
                 return
             }
 
+            let startupState = StartupSequenceView.state(for: startupSequenceElapsed)
             guard !isLaunchTransitionAnimating else { return }
 
             isLaunchTransitionAnimating = true
@@ -2171,6 +2211,36 @@ struct MaestroGameplayView: View {
         }
         onMenuSelection?(option)
         showDeveloperPrompt("MENU: \(option.title)")
+    }
+
+    private func handleHintButtonPress() {
+        showDeveloperPrompt("HINT: \(hintTextForCurrentQuestion())")
+    }
+
+    private func phaseOneRoundOneHint() -> String {
+        let stringNumber = currentPromptStrings.first ?? 1
+        return phaseOneHintByString[stringNumber] ?? "What note is a fourth below ?"
+    }
+
+    private func hintTextForCurrentQuestion() -> String {
+        let targetString = currentPromptStrings.first ?? 1
+        // Special first hint for high E if no prior answers
+        if lastResolvedCorrectNote == nil && targetString == 1 {
+            return "OLD MACDONALD HAS A ..?"
+        }
+
+        // Determine base reference note: prefer last correct, else previous string's open note
+        let baseNote: String = {
+            if let last = lastResolvedCorrectNote, !last.isEmpty {
+                let firstPart = last.split(separator: "+").first.map(String.init) ?? last
+                return firstPart
+            }
+            let previousString = max(min(targetString - 1, 6), 1)
+            return openNoteByString[previousString] ?? "?"
+        }()
+
+        let interval: String = (targetString == 3) ? "third below" : "fourth below"
+        return "What note is a \(interval) \(baseNote)?"
     }
 
     private func handleStartupSpeech(for phase: StartupSequenceView.Phase) {

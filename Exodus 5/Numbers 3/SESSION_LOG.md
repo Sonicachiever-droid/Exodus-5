@@ -112,6 +112,58 @@
 - **Fix:** Removed compensation logic for electric clean notes
 - **Result:** Code is cleaner; SoundFont decay variation acknowledged as sample-level issue
 
+### 10. 8-Phase Beginner Mode Implementation (Apr 14, 2026)
+- **File:** `BeginnerGameplayView.swift`
+- **Design:** Implemented user's 8-phase design:
+  - Phases 1-4: Sequential style (existing)
+  - Phases 5-6: Chord style (ascending/descending)
+  - Phases 7-8: Random style (ascending/descending)
+- **Key Changes:**
+  - Extended `getPhaseAttributes()` to cover phases 5-8
+  - Created `effectiveLessonStyle` computed property that returns style based on current phase
+  - Replaced phase completion celebration with seamless phase transitions
+  - Added `handlePhaseCompletion()` - transitions to next phase with phase announcement
+  - Added `beginNextPhaseFromTransition()` - starts next phase when user presses START
+  - Added `phaseTransitionPending` and `nextPhaseNumber` state to `BeginnerRuntimeState`
+  - Updated all `playLessonStyle` references to use `effectiveLessonStyle` in beginner mode
+  - Removed phases 9-12 from `modeVariant` switch
+  - Updated `selectedPhase` clamp from 12 to 8 phases
+  - Updated phase announcement text to handle 2-attribute phases (5-8) vs 3-attribute (1-4)
+  - Phase transitions now wait for START button press (backing track continues)
+  - CONGRATULATIONS only shows after phase 8 completion
+- **Behavior:**
+  - Phase completes → Shows phase announcement (like startup sequence)
+  - User presses START → Next phase begins seamlessly
+  - Backing track continues uninterrupted through phase transitions
+  - Fret position resets correctly (0 for ascending, 12 for descending)
+  - Each phase has exactly 13 rounds
+
+### 12. Phase Transition Bug Fixes (Apr 16, 2026)
+- **File:** `BeginnerGameplayView.swift`
+- **Bugs Fixed:**
+  1. **Fret position reset:** Fret 12 was being reset to fret 0 during phase transition
+  2. **Missing Phase Completed message:** No "Phase 1 Completed" announcement
+  3. **Backing track timing:** Track wasn't stopping appropriately after phase end
+- **Changes:**
+  - Added `currentRoundInPhase` to track round counter separately from fret position
+  - Added `phaseCompletedMessagePending` and `phaseCompletedMessageStartBeat` state
+  - Added `pendingMidiStopBeatPosition` for 3-beat delayed MIDI stop
+  - Rewrote `handlePhaseCompletion()` to show completed message, schedule MIDI stop, enter armed state
+  - Rewrote `handleStartButtonPress()` for two-stage transition:
+    - Stage 1: Completed message showing → START → Phase announcement
+    - Stage 2: Phase announcement showing → START → Gameplay begins
+  - Added `handlePendingMidiStopIfNeeded()` to stop backing track after 3-beat delay
+  - Added `phaseCompletedMessageText` computed property (shows "PHASE N COMPLETED" for 14 beats)
+  - Updated round labels to use `currentRoundInPhase` instead of `currentRound + 1`
+  - Fret position now correctly preserved: Phase 2 starts at fret 12, Phase 3 at fret 0, etc.
+  - Round counter resets to 1 at start of each phase
+- **Behavior:**
+  - Phase completes → Shows "PHASE N COMPLETED" for 14 beats
+  - Backing track stops 3 beats after final answer
+  - Armed state with flashing START appears
+  - START pressed → Shows "PHASE N+1" announcement
+  - START pressed again → Gameplay begins at correct fret position
+
 ---
 
 ## Pending Changes

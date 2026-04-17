@@ -169,8 +169,8 @@ private struct Exodus8MenuSheet: View {
                     Section("Lesson Setup") {
                         Picker("Style", selection: $lessonStyleRawValue) {
                             Text("Random").tag("random")
-                            Text("Sequential").tag("sequential")
                             Text("Chord").tag("chord")
+                            Text("Sequential").tag("sequential")
                         }
 
                         Stepper("Repetitions: \(repetitions)", value: $repetitions, in: 1...8)
@@ -210,12 +210,37 @@ private struct Exodus8MenuSheet: View {
                         .buttonStyle(.borderedProminent)
                     }
                 case .phases:
-                    Section("Controls") {
-                        Text("HINT: Shows the correct note for the current question.")
-                        Text("FRETBOARD: Toggles a visual guide showing all notes at current fret position.")
-                        Text("MENU: Opens additional options (HOME, PLAY, GUIDE, AUDIO).")
-                        Text("AUTO: Toggles autoplay mode (automatically plays correct notes).")
-                        Text("LEFT/RIGHT buttons: Submit your answer for the left or right thumb position.")
+                    Section("Quick Guide") {
+                        switch lessonStyleRawValue {
+                        case "random":
+                            Text("Random Style: Learn randomized note sequences at each fret position.")
+                            Text("Notes appear in randomized order; if the same note appears twice at one fret, you may use either matching location first.")
+                            Text("The second occurrence must use the remaining matching location.")
+                            Text("Backing track plays root note only (E for open strings, F for fret 1, etc.).")
+                            Text("Builds quick note recognition and pattern learning skills.")
+                        case "chord":
+                            Text("Chord Style: Practice harmonic chord combinations.")
+                            Text("Chords automatically adapt to your current fret position.")
+                            Text("Educational compatibility scores show how well chords fit available notes.")
+                            Text("Backing track plays full chord progressions.")
+                            Text("Learn chord construction, fingerings, and harmonic relationships.")
+                        case "sequential":
+                            Text("Sequential Style: Learn all 6 string notes at each fret in order, low to high.")
+                            Text("Round 1 ascends frets with sharps. Round 2 descends with flats.")
+                            Text("Notes are revealed one per beat after a 4-beat intro.")
+                            Text("Answer box unlocks after all 6 notes are shown.")
+                        default:
+                            Text("START begins or resumes. STOP pauses. RESET returns to setup boundary.")
+                            Text("Repetitions can change anytime and update live.")
+                            Text("Starting Fret can be adjusted anytime; it applies on RESET -> START.")
+                        }
+                        
+                        Text("Transport Controls:")
+                        Text("• START begins or resumes. STOP pauses. RESET returns to setup boundary.")
+                        Text("• Repetitions can change anytime and update live.")
+                        Text("• Starting Fret can be adjusted anytime; it applies on RESET -> START.")
+                        Text("• Direction is locked during a run to keep sharp/flat note spelling consistent.")
+                        Text("• Use HINT and FRETBOARD as needed for reinforcement.")
                     }
                 case .audio:
                     Section("Audio") {
